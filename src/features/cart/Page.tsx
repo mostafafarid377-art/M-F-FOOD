@@ -1,134 +1,128 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
-import { useCart } from "../../app/providers";
+import { Link, useNavigate } from "react-router-dom";
+import { Button, Card } from "../../components/ui";
+import { formatEGP } from "../../lib/format";
+import { useCart, useLayout } from "../../app/providers";
 
-type CartItem = {
-  id: string;
-  name: string;
-  price: number; // in piastres
-  quantity: number;
-  image?: string;
-};
-
+/**
+ * Cart page — item quantities, removal, subtotal/total in EGP and a
+ * checkout button. The cart itself is persisted by CartProvider.
+ */
 export default function CartPage() {
   const navigate = useNavigate();
-  const { items, addItem, removeItem, updateQuantity, clearCart, total } = useCart();
-
-  const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
-  const handleRemove = (itemId: string) => {
-    removeItem(itemId);
-  };
-
-  const handleQuantityChange = (itemId: string, event: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(event.target.value, 10);
-    if (!isNaN(value) && value >= 0) {
-      updateQuantity(itemId, value);
-    }
-  };
+  const { currencySymbol } = useLayout();
+  const { items, removeItem, updateQuantity, clearCart, subtotal } = useCart();
 
   const handleCheckout = () => {
-    if (items.length === 0) {
-      alert("Your cart is empty");
-      return;
-    }
+    if (items.length === 0) return;
     navigate("/checkout");
   };
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-white/10 rounded p-8 text-center max-w-md">
-          <h2 className="text-2xl font-bold text-white mb-4">Your Cart</h2>
-          <p className="text-white/80 mb-6">Your cart is empty</p>
-          <p className="text-white/60 small">
-            Browse the menu to add items
-          </p>
-        </div>
+      <div className="mx-auto flex max-w-md flex-col items-center px-4 py-20 text-center">
+        <p className="text-6xl">🛒</p>
+        <h1 className="mt-4 text-2xl font-bold text-primary">Your cart is empty</h1>
+        <p className="mt-2 text-gray-500">
+          Browse the menu and add something delicious.
+        </p>
+        <Link to="/menu" className="mt-6">
+          <Button size="lg">Browse Menu</Button>
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
-      <h2 className="text-2xl font-bold text-primary mb-6">Your Cart</h2>
-
-      <div className="overflow-x-auto rounded-lg bg-white/10 shadow-md">
-        <table className="w-full">
-          <thead>
-            <tr className="text-left text-white border-b border-gray-200/50">
-              <th className="p-3 text-primary">Item</th>
-              <th className="p-3 text-primary">Qty</th>
-              <th className="p-3 text-primary">Price</th>
-              <th className="p-3 text-primary">Remove</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id} className="border-b border-gray-200/50">
-                <td className="p-3">
-                  <img
-                    src={item.image || "/placeholder-food.jpg"}
-                    alt={item.name}
-                    className="h-6 w-6 object-rounded mr-3"
-                  />
-                  <span>{item.name}</span>
-                </td>
-                <td className="p-3">
-                  <input
-                    type="number"
-                    min="1"
-                    value={item.quantity}
-                    onChange={(e) => handleQuantityChange(item.id, e)}
-                    className="w-20 rounded border border-gray-300 text-center"
-                  />
-                </td>
-                <td className="p-3">
-                  EGP {item.price * item.quantity / 100}
-                </td>
-                <td className="p-3">
-                  <button
-                    onClick={() => handleRemove(item.id)}
-                    className="text-red-600 hover:text-red-400"
-                  >
-                    Remove
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="mx-auto max-w-4xl px-4 py-8">
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-extrabold text-primary">Your Cart</h1>
+        <Button variant="ghost" size="sm" onClick={clearCart}>
+          Clear cart
+        </Button>
       </div>
 
-      <div className="mt-6 p-4 bg-primary/10 rounded border border-primary/20">
-        <div className="flex justify-between text-sm">
-          <span>Subtotal:</span>
-          <span>EGP {subtotal / 100}</span>
+      <div className="space-y-3">
+        {items.map((item) => (
+          <Card key={item.id} className="flex flex-wrap items-center gap-4">
+            <img
+              src={item.image ?? "/images/placeholder.jpg"}
+              alt={item.name}
+              className="h-16 w-16 rounded-lg object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = "none";
+              }}
+            />
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold text-gray-900">{item.name}</p>
+              <p className="text-sm text-gray-500">
+                {formatEGP(item.price, currencySymbol)} each
+              </p>
+            </div>
+
+            {/* Quantity stepper */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                aria-label={`Decrease quantity of ${item.name}`}
+                onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                className="flex h-8 w-8 items-center justify-center rounded-md border border-primary-200 text-primary transition-colors hover:bg-primary-50"
+              >
+                −
+              </button>
+              <span className="w-8 text-center font-semibold">{item.quantity}</span>
+              <button
+                type="button"
+                aria-label={`Increase quantity of ${item.name}`}
+                onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                className="flex h-8 w-8 items-center justify-center rounded-md border border-primary-200 text-primary transition-colors hover:bg-primary-50"
+              >
+                +
+              </button>
+            </div>
+
+            <p className="w-24 text-right font-bold text-gray-900">
+              {formatEGP(item.price * item.quantity, currencySymbol)}
+            </p>
+
+            <button
+              type="button"
+              aria-label={`Remove ${item.name} from cart`}
+              onClick={() => removeItem(item.id)}
+              className="rounded-md p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.87 12.14A2 2 0 0116.14 21H7.86a2 2 0 01-2-1.86L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16" />
+              </svg>
+            </button>
+          </Card>
+        ))}
+      </div>
+
+      {/* Totals */}
+      <Card className="mt-6">
+        <div className="flex items-center justify-between text-sm text-gray-600">
+          <span>Subtotal</span>
+          <span className="font-semibold text-gray-900">
+            {formatEGP(subtotal, currencySymbol)}
+          </span>
         </div>
-      </div>
-
-      <div className="mt-8 p-4 bg-primary rounded">
-        <h3 className="text-lg font-bold text-primary mb-2">Total</h3>
-        <p className="text-3xl font-bold">
-          EGP {total / 100}
+        <div className="mt-3 flex items-center justify-between border-t border-gray-100 pt-3">
+          <span className="text-lg font-bold text-gray-900">Total</span>
+          <span className="text-2xl font-extrabold text-primary">
+            {formatEGP(subtotal, currencySymbol)}
+          </span>
+        </div>
+        <p className="mt-1 text-right text-xs text-gray-400">
+          Delivery fees (if any) are added at checkout. Final totals are verified
+          by the server.
         </p>
-      </div>
+      </Card>
 
-      <div className="mt-6">
-        <button
-          onClick={handleCheckout}
-          className="w-full bg-primary text-white py-3 rounded hover:bg-secondary transition-colors text-lg font-medium"
-        >
-          Checkout
-        </button>
-      </div>
-
-      <button
-        onClick={clearCart}
-        className="mt-4 w-full text-red-600 hover:text-red-400 py-2 rounded text-sm"
-      >
-        Clear Cart
-      </button>
+      <Button size="lg" fullWidth className="mt-6" onClick={handleCheckout}>
+        Proceed to Checkout
+      </Button>
     </div>
   );
 }
