@@ -11,6 +11,11 @@ import LoginPage from "../features/auth/LoginPage";
 import RegisterPage from "../features/auth/RegisterPage";
 import { Button } from "../components/ui";
 import { ManagementGate } from "../features/management/access";
+import { FloorGate, Phase5Shell } from "../features/phase5/Shell";
+const Tables = React.lazy(() => import("../features/phase5/Tables"));
+const DeliveryAdmin = React.lazy(() => import("../features/phase5/DeliveryAdmin"));
+const Driver = React.lazy(() => import("../features/phase5/Driver"));
+const Tracking = React.lazy(() => import("../features/phase5/Tracking"));
 const Dashboard = React.lazy(() => import("../features/management/Dashboard"));
 const Kitchen = React.lazy(() => import("../features/management/Kitchen"));
 
@@ -42,6 +47,10 @@ export const router = createRouter([
       { path: "orders", element: <OrdersPage /> },
       { path: "admin", element: <ManagementGate><React.Suspense fallback={<p className="p-8">Loading dashboard…</p>}><Dashboard /></React.Suspense></ManagementGate> },
       { path: "kitchen", element: <ManagementGate kitchen><React.Suspense fallback={<p className="p-8">Loading kitchen…</p>}><Kitchen /></React.Suspense></ManagementGate> },
+      { path: "tables", element: <FloorGate><Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><Tables /></React.Suspense></Phase5Shell></FloorGate> },
+      { path: "delivery-admin", element: <ManagementGate><Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><DeliveryAdmin /></React.Suspense></Phase5Shell></ManagementGate> },
+      { path: "driver", element: <Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><Driver /></React.Suspense></Phase5Shell> },
+      { path: "track/:orderId", element: <Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><Tracking /></React.Suspense></Phase5Shell> },
       { path: "login", element: <LoginPage /> },
       { path: "register", element: <RegisterPage /> },
       { path: "*", element: <NotFoundPage /> },

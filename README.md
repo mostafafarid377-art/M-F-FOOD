@@ -191,3 +191,93 @@ run `npm run typecheck` and `npm run build`. PGlite substitutes Supabase Auth an
 is not a substitute for testing real RLS, Realtime delivery, or reconnection on
 your Supabase project. Verify those with separate customer, manager, chef and
 admin accounts before using the dashboard in production.
+
+## Phase 5 — Tables, deliveries and live tracking
+
+**Deployment order:** back up the database and test in a separate Supabase
+project first. Apply `supabase/migrations/20240104_04_tables_delivery.sql` after
+Phases 1–4, then deploy the frontend. The migration does not delete existing
+orders, payments or legacy `table_sessions`. It imports the latest legacy row
+per table number into `restaurant_tables`; legacy `checked_out` is mapped to
+`cleaning`, and no historical session is fabricated. An imported `occupied`
+table with no open session must be reviewed and reset by an admin. Do not run
+`seed.sql` again on a populated project.
+
+### Tables
+
+- Open `/tables` as an admin, active manager, server or cashier. Only admins
+  create/edit/deactivate tables. Staff open and close sessions; a unique partial
+  index prevents more than one open session per table. A session cannot close
+  while its linked orders are unfinished. Closing makes the table available.
+- New dine-in orders using the table number attach to its open session. Older
+  dine-in orders for that same table may be attached with their full order UUID.
+  Existing checkout still accepts a table number when no session is configured.
+- Sessions and links are separate from the old `table_sessions` records. They
+  store opening/closing times; the table screen totals non-cancelled orders.
+
+### Dispatch and drivers
+
+- At `/delivery-admin`, admins/managers see delivery orders, assign/reassign a
+  driver before pickup, and may cancel a delivery. An active driver may hold
+  only one active delivery. Kitchen status remains the original order status;
+  a driver can pick up only when the kitchen marks the order **Ready**. Marking
+  delivered atomically completes the order. An undelivered Phase 5 delivery
+  cannot be completed through the old order-status button.
+- Drivers must register normally. In the delivery dashboard, an administrator
+  adds the registered user's **Auth user UUID**, display name and optional
+  contact phone. Driver access comes from an active driver record, not from a
+  client-supplied role. Reassignment is restricted once pickup has started.
+- At `/driver`, the assigned driver sees only their active deliveries and may
+  open a navigation service. After pickup they mark **on the way**, explicitly
+  start GPS sharing, and keep the page open. Browser geolocation requires HTTPS,
+  device support and permission. Location is sent approximately every 15 seconds
+  when moving 20 metres, or at most every 60 seconds while stationary; the server
+  also throttles updates. Background browser/device suspension can stop updates.
+  Completion, cancellation, page closure or user action stops sharing. The server
+  rejects updates after the assignment ends, even if a client is offline.
+- Only the most recent GPS point is stored per active delivery. It is deleted
+  on reassignment, cancellation or delivery. Customer and driver locations are
+  protected by RLS and ownership-checked RPCs; a driver can only publish to their
+  own active delivery. Browser GPS cannot prove that a device's coordinates have
+  not been spoofed, so do not treat them as proof of physical presence.
+
+### Customer map and routing
+
+- The customer opens **My Orders → Track delivery**, and can choose a destination
+  on the map or explicitly use their current location. The admin enters verified
+  restaurant latitude/longitude in the delivery dashboard. Neither location is
+  guessed. Driver contact and GPS are shown only for the customer's own active
+  delivery; GPS appears after the driver starts sharing. An update older than
+  two minutes is labelled stale. Realtime subscriptions reconnect and all views
+  periodically reconcile in case events are missed.
+- Leaflet uses OpenStreetMap tiles; no map API key is required. OpenStreetMap's
+  tile servers receive requests revealing the viewed area. Follow their usage
+  policy or configure a suitable tile provider before high-volume production.
+- Route lines and ETA are **not invented**. Optionally set `VITE_ROUTING_URL`
+  to an HTTPS OSRM-compatible server (for GitHub Pages, an Actions repository
+  variable), then rebuild. The customer must enable routing explicitly: the
+  browser sends the current driver and destination coordinates to that service.
+  The service must support CORS and an OSRM `/route/v1/driving/...` endpoint.
+  Without a configured service, or if the request fails or GPS is stale, no
+  route or ETA is shown. Do not put secret API keys in `VITE_` variables.
+- The Phase 5 screens include an English/Arabic toggle and RTL layout. The
+  pre-existing customer/admin screens are not fully translated.
+
+### Realtime and validation checklist
+
+The migration adds the Phase 5 tables to `supabase_realtime` when that
+publication exists. Verify Supabase Database → Replication for `orders`,
+`restaurant_tables`, `dining_sessions`, `dining_session_orders`,
+`delivery_jobs`, `delivery_locations`, `delivery_destinations`,
+`delivery_drivers` and `restaurant_geo`. Realtime must be enabled on the
+project; polling is only a reconciliation fallback.
+
+Run `npm test`, `npm run typecheck` and `npm run build`. The automated SQL tests
+use PGlite with a simulated Auth context, and UI tests mock geolocation and
+Realtime. **They do not verify a real Supabase project, GPS device, map tile
+provider or routing service.** Before production, use separate customer,
+driver, manager and unrelated-user sessions on real devices: test checkout,
+assignment/reassignment, GPS permission and movement, live map updates,
+disconnection/reconnection, stale locations, cancellation, delivery completion,
+and attempts to read or update another customer's/driver's data. Test
+concurrent session opening and review the project's actual RLS/grants as well.

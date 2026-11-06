@@ -29,6 +29,7 @@ jobs:
           VITE_BASE_PATH: /M-F-FOOD/
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_ROUTING_URL: ${{ vars.VITE_ROUTING_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

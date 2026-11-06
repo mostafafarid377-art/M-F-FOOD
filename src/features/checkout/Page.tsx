@@ -14,6 +14,7 @@ export interface DemoOrder {
   status: "pending";
   total_price: number;
   delivery_address: string | null;
+  notes?: string | null;
   table_number: number | null;
   demo: true;
   items: { name: string; quantity: number; price_at_order: number }[];
@@ -53,6 +54,7 @@ export default function CheckoutPage() {
 
   const [fulfillment, setFulfillment] = useState<"delivery" | "dine_in">("delivery");
   const [address, setAddress] = useState("");
+  const [instructions, setInstructions] = useState("");
   const [tableNumber, setTableNumber] = useState("");
   const [placing, setPlacing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -121,11 +123,14 @@ export default function CheckoutPage() {
       if (supabase) {
         // Server-side order creation: totals are computed in Postgres from
         // menu_items.price; the client never sends prices.
-        const { data, error: rpcError } = await supabase.rpc("create_order", {
+        const orderArgs = {
           p_items: orderItems,
           p_delivery_address: isDelivery ? address.trim() : null,
           p_table_number: isDelivery ? null : parseInt(tableNumber, 10),
-        });
+        };
+        const { data, error: rpcError } = isDelivery && instructions.trim()
+          ? await supabase.rpc("create_order_with_notes", { ...orderArgs, p_notes: instructions.trim() })
+          : await supabase.rpc("create_order", orderArgs);
         if (rpcError) {
           throw new Error(rpcError.message);
         }
@@ -141,6 +146,7 @@ export default function CheckoutPage() {
         status: "pending",
         total_price: estimatedTotal,
         delivery_address: isDelivery ? address.trim() : null,
+        notes: isDelivery ? instructions.trim() || null : null,
         table_number: isDelivery ? null : parseInt(tableNumber, 10),
         demo: true,
         items: items.map((item) => ({
@@ -215,6 +221,8 @@ export default function CheckoutPage() {
                     placeholder="Street, building, floor, apartment, landmark…"
                     className="w-full rounded-md border border-primary-200 px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                   />
+                  <label htmlFor="delivery-instructions" className="mb-1 mt-3 block text-sm font-medium text-gray-700">Delivery instructions (optional)</label>
+                  <textarea id="delivery-instructions" rows={2} maxLength={1000} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Gate code, directions, or delivery instructions" className="w-full rounded-md border border-primary-200 px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
                 </div>
               ) : (
                 <div>

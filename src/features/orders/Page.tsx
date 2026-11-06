@@ -13,6 +13,7 @@ type DisplayOrder = {
   status: OrderStatus | "pending";
   total_price: number;
   delivery_address: string | null;
+  notes: string | null;
   table_number: number | null;
   demo: boolean;
   lines: { name: string; quantity: number; price_at_order: number }[];
@@ -25,6 +26,7 @@ function fromRow(row: OrderWithItems): DisplayOrder {
     status: row.status,
     total_price: row.total_price,
     delivery_address: row.delivery_address,
+    notes: row.notes,
     table_number: row.table_number,
     demo: false,
     lines: row.order_items.map((item) => ({
@@ -42,6 +44,7 @@ function fromDemo(order: DemoOrder): DisplayOrder {
     status: order.status,
     total_price: order.total_price,
     delivery_address: order.delivery_address,
+    notes: order.notes ?? null,
     table_number: order.table_number,
     demo: true,
     lines: order.items,
@@ -185,6 +188,8 @@ export default function OrdersPage() {
                 ))}
               </ul>
 
+              {order.notes && <p className="mt-3 text-sm text-gray-600">Delivery instructions: {order.notes}</p>}
+              {!order.demo && order.delivery_address && <Link className="mt-3 inline-block text-sm font-semibold text-primary underline" to={`/track/${order.id}`}>Track delivery</Link>}
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2">
                 <p className="text-xs text-gray-500">
                   {order.delivery_address
