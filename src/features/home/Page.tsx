@@ -1,3 +1,4 @@
+import { imageUrl } from "../../lib/assets";
 import React from "react";
 import { Link } from "react-router-dom";
 import { Button, Card } from "../../components/ui";
@@ -47,7 +48,7 @@ export default function HomePage() {
           </div>
           <div className="hidden md:block">
             <img
-              src="/images/burger.jpg"
+              src={imageUrl("/images/burger.jpg")}
               alt="Classic beef burger"
               className="mx-auto w-full max-w-md rounded-2xl shadow-2xl ring-4 ring-white/20"
               onError={(e) => {

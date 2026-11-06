@@ -1,3 +1,4 @@
+import { imageUrl } from "../../lib/assets";
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button, Card } from "../../components/ui";
@@ -46,7 +47,7 @@ export default function CartPage() {
         {items.map((item) => (
           <Card key={item.id} className="flex flex-wrap items-center gap-4">
             <img
-              src={item.image ?? "/images/placeholder.jpg"}
+              src={imageUrl(item.image)}
               alt={item.name}
               className="h-16 w-16 rounded-lg object-cover"
               onError={(e) => {

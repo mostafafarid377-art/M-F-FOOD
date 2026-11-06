@@ -1,5 +1,5 @@
 import React from "react";
-import { createBrowserRouter, RouterProvider, Link } from "react-router-dom";
+import { createBrowserRouter, createHashRouter, RouterProvider, Link } from "react-router-dom";
 import { AppLayout } from "./layout/AppLayout";
 import { AuthProvider, CartProvider, LayoutProvider } from "./providers";
 import HomePage from "../features/home/Page";
@@ -24,7 +24,10 @@ function NotFoundPage() {
   );
 }
 
-export const router = createBrowserRouter([
+// GitHub Pages has no SPA fallback for refreshed deep links. Use hash routes
+// under a subdirectory, while keeping clean browser routes in local development.
+const createRouter = import.meta.env.BASE_URL === "/" ? createBrowserRouter : createHashRouter;
+export const router = createRouter([
   {
     path: "/",
     element: <AppLayout />,

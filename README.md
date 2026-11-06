@@ -104,3 +104,18 @@ supabase/
   migrations/                 # Phase 2 + Phase 3 SQL
   seed.sql
 ```
+
+### Deploying to GitHub Pages
+
+After merging the deployment workflow into `main`, go to **Settings → Pages**
+for the repository and select **GitHub Actions** as the build and deployment
+source. The workflow builds on pushes to `main` and publishes the `dist` folder.
+The Pages build uses hash routes (for example `/#/menu`) so refreshes work on
+GitHub's static hosting.
+
+The `.env` file is local and is not uploaded to GitHub. To use Supabase on the
+published site, add repository Actions variables named `VITE_SUPABASE_URL` and
+`VITE_SUPABASE_ANON_KEY` under **Settings → Secrets and variables → Actions →
+Variables**, then re-run the deployment workflow. These values are public in
+the browser build: use only the project URL and public anon key, never a
+service-role or secret key. Without both values, the deployed app uses demo mode.
