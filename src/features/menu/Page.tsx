@@ -37,8 +37,8 @@ export default function MenuPage() {
   const { addItem } = useCart();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const [categories, setCategories] = useState<Category[]>(SAMPLE_CATEGORIES);
-  const [items, setItems] = useState<MenuItem[]>(SAMPLE_MENU_ITEMS);
+  const [categories, setCategories] = useState<Category[]>(supabase ? [] : SAMPLE_CATEGORIES);
+  const [items, setItems] = useState<MenuItem[]>(supabase ? [] : SAMPLE_MENU_ITEMS);
   const [loading, setLoading] = useState(Boolean(supabase));
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -72,15 +72,15 @@ export default function MenuPage() {
       if (cancelled) return;
 
       if (catRes.error || itemRes.error) {
-        // Fall back to sample data so the UI keeps working.
-        setLoadError("Couldn't load the live menu — showing sample data instead.");
-        setCategories(SAMPLE_CATEGORIES);
-        setItems(SAMPLE_MENU_ITEMS);
+        // Never show sample items as if they were available in the live database.
+        setLoadError("Couldn't load the live menu. Please try again later.");
+        setCategories([]);
+        setItems([]);
       } else {
         const cats = (catRes.data as CategoryRow[]).map(mapCategory);
         const menuItems = (itemRes.data as MenuItemRow[]).map(mapMenuItem);
-        if (cats.length > 0) setCategories(cats);
-        if (menuItems.length > 0) setItems(menuItems);
+        setCategories(cats);
+        setItems(menuItems);
       }
       setLoading(false);
     }

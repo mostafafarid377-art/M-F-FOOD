@@ -1,12 +1,23 @@
 import { imageUrl } from "../../lib/assets";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button, Card } from "../../components/ui";
 import { useLayout } from "../../app/providers";
 import { SAMPLE_CATEGORIES } from "../menu/data";
+import { supabase } from "../../lib/supabase";
+import type { Category } from "../menu/types";
 
 export default function HomePage() {
   const { restaurantName, currencySymbol, deliveryFee, minimumOrder } = useLayout();
+  const [categories, setCategories] = useState<Category[]>(supabase ? [] : SAMPLE_CATEGORIES);
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+    supabase.from("categories").select("id,name,description").eq("is_visible", true).order("sort_order").then(({ data }) => {
+      if (active && data) setCategories(data);
+    });
+    return () => { active = false; };
+  }, []);
 
   return (
     <div>
@@ -63,7 +74,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-4 py-12">
         <h2 className="mb-6 text-2xl font-bold text-gray-900">What are you craving?</h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
-          {SAMPLE_CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <Link key={category.id} to={`/menu?cat=${category.id}`}>
               <Card hoverable className="flex h-full flex-col items-center justify-center py-6 text-center">
                 <span className="font-semibold text-gray-800">{category.name}</span>

@@ -168,7 +168,7 @@ export default function OrdersPage() {
                   </p>
                 </div>
                 <Badge variant={statusVariant(order.status)} dot>
-                  {order.status}
+                  {order.status === "confirmed" ? "accepted" : order.status}
                 </Badge>
               </div>
 
