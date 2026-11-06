@@ -10,6 +10,9 @@ import OrdersPage from "../features/orders/Page";
 import LoginPage from "../features/auth/LoginPage";
 import RegisterPage from "../features/auth/RegisterPage";
 import { Button } from "../components/ui";
+import { ManagementGate } from "../features/management/access";
+const Dashboard = React.lazy(() => import("../features/management/Dashboard"));
+const Kitchen = React.lazy(() => import("../features/management/Kitchen"));
 
 function NotFoundPage() {
   return (
@@ -37,6 +40,8 @@ export const router = createRouter([
       { path: "cart", element: <CartPage /> },
       { path: "checkout", element: <CheckoutPage /> },
       { path: "orders", element: <OrdersPage /> },
+      { path: "admin", element: <ManagementGate><React.Suspense fallback={<p className="p-8">Loading dashboard…</p>}><Dashboard /></React.Suspense></ManagementGate> },
+      { path: "kitchen", element: <ManagementGate kitchen><React.Suspense fallback={<p className="p-8">Loading kitchen…</p>}><Kitchen /></React.Suspense></ManagementGate> },
       { path: "login", element: <LoginPage /> },
       { path: "register", element: <RegisterPage /> },
       { path: "*", element: <NotFoundPage /> },

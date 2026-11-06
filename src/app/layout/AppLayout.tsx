@@ -82,6 +82,8 @@ export function AppLayout() {
             <NavLink to="/orders" className={navLinkClass}>
               My Orders
             </NavLink>
+            {user && user.role !== "customer" && <NavLink to="/kitchen" className={navLinkClass}>Kitchen</NavLink>}
+            {user && user.role !== "customer" && <NavLink to="/admin" className={navLinkClass}>Dashboard</NavLink>}
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -152,6 +154,8 @@ export function AppLayout() {
               <NavLink to="/orders" className={navLinkClass} onClick={() => setMobileOpen(false)}>
                 My Orders
               </NavLink>
+              {user && user.role !== "customer" && <NavLink to="/kitchen" className={navLinkClass} onClick={() => setMobileOpen(false)}>Kitchen</NavLink>}
+              {user && user.role !== "customer" && <NavLink to="/admin" className={navLinkClass} onClick={() => setMobileOpen(false)}>Dashboard</NavLink>}
             </div>
             <div className="mt-3 border-t border-gray-100 pt-3">
               {user ? (

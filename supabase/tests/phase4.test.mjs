@@ -1,0 +1,90 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { PGlite } from '@electric-sql/pglite';
+
+// A local PostgreSQL-compatible test, not a live Supabase or Realtime test.
+// auth.uid and the UUID extension are substituted with test equivalents.
+test('Phase 4 RLS, workflow, history, and checkout integration', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`create role anon; create role authenticated; create schema auth;
+      create table auth.users(id uuid primary key, raw_user_meta_data jsonb);
+      create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+      grant usage on schema public, auth to anon, authenticated;
+      grant execute on function auth.uid() to anon, authenticated;
+      create function public.uuid_generate_v4() returns uuid language sql as $$ select gen_random_uuid() $$;`);
+    let core = await readFile('supabase/migrations/20240101_01_create_core_tables.sql', 'utf8');
+    core = core.replace('create extension if not exists "uuid-ossp";', '-- supplied by test harness');
+    await db.exec(core);
+    await db.exec(await readFile('supabase/migrations/20240102_02_auth_and_order_creation.sql', 'utf8'));
+    await db.exec('create publication supabase_realtime');
+    const phase4 = await readFile('supabase/migrations/20240103_03_admin_kitchen.sql', 'utf8');
+    await db.exec(phase4);
+    await db.exec(phase4); // reapplication should not duplicate policies/publication entries
+    assert.equal((await db.query("select * from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='orders'")).rows.length, 1);
+    await db.exec('grant select, insert, update, delete on all tables in schema public to authenticated;');
+    const ids = { admin:'00000000-0000-4000-8000-000000000101', manager:'00000000-0000-4000-8000-000000000102', chef:'00000000-0000-4000-8000-000000000103', customer:'00000000-0000-4000-8000-000000000104', other:'00000000-0000-4000-8000-000000000105', item:'00000000-0000-4000-8000-100000000001' };
+    for (const id of [ids.admin, ids.manager, ids.chef, ids.customer, ids.other]) await db.query('insert into auth.users(id,raw_user_meta_data) values ($1, $2::jsonb)', [id, '{}']);
+    await db.query("update profiles set role = 'admin' where id = $1", [ids.admin]);
+    await db.query("update profiles set role = 'staff' where id in ($1,$2)", [ids.manager, ids.chef]);
+    await db.query("insert into staff_members(profile_id,role) values ($1,'manager'),($2,'chef')", [ids.manager, ids.chef]);
+    await db.query("insert into menu_items(id,name,price,is_available) values ($1,'Test burger',12500,true)", [ids.item]);
+    await db.exec("insert into restaurant_settings(currency,delivery_fee,minimum_order) values ('EGP',200,1000)");
+    const as = async (id) => { await db.exec('set role authenticated'); await db.query("select set_config('request.jwt.claim.sub', $1, false)", [id]); };
+    const reset = async () => { await db.exec('reset role'); await db.query("select set_config('request.jwt.claim.sub', '', false)"); };
+    await as(ids.customer);
+    await assert.rejects(db.query("update profiles set role = 'admin' where id = $1", [ids.customer]), /role_change_forbidden/);
+    await assert.rejects(db.query("insert into menu_items(name,price) values ('Attack',1)"), /row-level security/);
+    await assert.rejects(db.query("insert into orders(customer_id,total_price) values ($1,1)", [ids.customer]), /row-level security/);
+    const result = await db.query("select create_order($1::jsonb,'Test address',null) as id", [JSON.stringify([{ menu_item_id: ids.item, quantity: 2, price: 1 }])]);
+    const id = result.rows[0].id;
+    assert.equal((await db.query('select total_price from orders where id = $1', [id])).rows[0].total_price, 25200);
+    await assert.rejects(db.query("select transition_order($1,'pending','confirmed')", [id]), /not_authorized/);
+    await assert.rejects(db.query("insert into order_items(order_id,menu_item_id,quantity,price_at_order) values($1,$2,1,1)", [id,ids.item]), /row-level security/);
+    await as(ids.other); assert.equal((await db.query('select * from orders where id = $1',[id])).rows.length, 0);
+    await reset(); await db.query('update menu_items set is_available = false where id = $1',[ids.item]);
+    await as(ids.chef);
+    assert.equal((await db.query('select name from menu_items where id = $1',[ids.item])).rows[0].name, 'Test burger');
+    assert.equal((await db.query('select * from orders where id = $1',[id])).rows.length, 1);
+    assert.equal((await db.query('select * from profiles where id = $1',[ids.customer])).rows.length, 0);
+    assert.equal((await db.query('select * from order_items where order_id = $1',[id])).rows.length, 1);
+    assert.equal((await db.query('select * from payments')).rows.length, 0);
+    assert.equal((await db.query('update orders set total_price = 1 where id = $1 returning id',[id])).rows.length, 0);
+    assert.equal((await db.query("update orders set delivery_address = 'changed' where id = $1 returning id",[id])).rows.length, 0);
+    assert.equal((await db.query('update order_items set price_at_order = 1 where order_id = $1 returning id',[id])).rows.length, 0);
+    assert.equal((await db.query("update menu_items set price = 1 where id = $1 returning id",[ids.item])).rows.length, 0);
+    await assert.rejects(db.query("select transition_order($1,'pending','ready')",[id]), /invalid_or_unauthorized_transition/);
+    await assert.rejects(db.query("select transition_order($1,'pending','cancelled')",[id]), /invalid_or_unauthorized_transition/);
+    await db.query("select transition_order($1,'pending','confirmed')",[id]);
+    await assert.rejects(db.query("select transition_order($1,'pending','confirmed')",[id]), /order_status_changed_refresh/);
+    await db.query("select transition_order($1,'confirmed','preparing')",[id]);
+    await db.query("select transition_order($1,'preparing','ready')",[id]);
+    await assert.rejects(db.query("select transition_order($1,'ready','completed')",[id]), /invalid_or_unauthorized_transition/);
+    await as(ids.manager);
+    assert.equal((await db.query('select * from profiles where id = $1',[ids.customer])).rows.length, 1);
+    const category = (await db.query("insert into categories(name) values ('Test category') returning id")).rows[0].id;
+    await db.query("update categories set name = 'Edited category' where id = $1",[category]);
+    await db.query("insert into menu_items(name, price, category_id) values ('Test item', 5500, $1)",[category]);
+    await db.query('delete from categories where id = $1',[category]);
+    assert.equal((await db.query("select category_id from menu_items where name = 'Test item'")).rows[0].category_id, null);
+    await db.query("select transition_order($1,'ready','completed')",[id]);
+    await db.query("update menu_items set price = 15000 where id = $1",[ids.item]);
+    assert.equal((await db.query('select * from staff_members')).rows.length, 1); // only manager's own row
+    await as(ids.admin);
+    const adminItem = (await db.query("insert into menu_items(name, price) values ('Admin item', 6000) returning id")).rows[0].id;
+    await db.query("update menu_items set price = 6500 where id = $1", [adminItem]);
+    assert.equal((await db.query('select price from menu_items where id = $1', [adminItem])).rows[0].price, 6500);
+    await db.query("update staff_members set is_active = false where profile_id = $1", [ids.chef]);
+    await as(ids.chef);
+    assert.equal((await db.query('select * from orders where id = $1', [id])).rows.length, 0);
+    await assert.rejects(db.query("select transition_order($1,'completed','ready')", [id]), /not_authorized/);
+    await as(ids.admin);
+    assert.equal((await db.query('select * from staff_members')).rows.length, 2);
+    assert.equal((await db.query('select * from order_status_history where order_id = $1',[id])).rows.length, 5);
+    assert.ok((await db.query("select * from audit_logs where entity_type = 'categories' and entity_id = $1",[category])).rows.length >= 2);
+    assert.equal((await db.query("select * from audit_logs where entity_type = 'order_status' and entity_id = $1",[id])).rows.length, 4);
+    assert.ok((await db.query("select * from audit_logs where entity_type = 'menu_items' and entity_id = $1",[ids.item])).rows.length > 0);
+    await reset();
+  } finally { await db.close(); }
+});

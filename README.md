@@ -119,3 +119,75 @@ published site, add repository Actions variables named `VITE_SUPABASE_URL` and
 Variables**, then re-run the deployment workflow. These values are public in
 the browser build: use only the project URL and public anon key, never a
 service-role or secret key. Without both values, the deployed app uses demo mode.
+
+## Phase 4 — Dashboard and kitchen display
+
+Phase 4 uses the existing database; it does not reset, seed, or replace any
+records. Before production, back up the database and test the migration on a
+separate Supabase project. Run only the new
+`supabase/migrations/20240103_03_admin_kitchen.sql` **after** the first two
+migrations. Do not re-run `seed.sql` on a database with real users: its staff
+bootstrap can promote existing profiles.
+
+- `/admin` is for admins and active managers. It includes the overview, menu,
+  orders, and (admins only) staff sections. Categories may be deleted; items
+  in a deleted category become uncategorized. Item prices are entered in EGP
+  and saved as integer piastres. Image fields accept a URL or `/images/` path.
+- `/kitchen` is for admins, active managers, and active chefs. It listens for
+  order changes via Supabase Realtime, reloads on reconnection, and reconciles
+  every 20 seconds when events are missed. “New” means pending; “Delayed”
+  means 20 minutes since order creation, not a configurable SLA.
+- Database status `confirmed` is displayed as **Accepted** in management.
+  Pending → Accepted → Preparing → Ready → Completed is enforced by
+  `transition_order` with a row lock and expected-current-status check.
+  Chefs can advance through Ready; only managers/admins can complete or cancel
+  pending, accepted, or preparing orders. Payments are separate and untouched.
+- The overview’s “Today's sales” is **completed order value**, based on the
+  completion update time and the browser's local date. It is not paid revenue.
+- Order notes are displayed when present. The existing schema has no modifier
+  or modifier-option tables, so modifiers cannot be managed or displayed.
+  Existing orders have no retroactive status history; new orders and future
+  changes get history entries. Menu/staff changes and status changes are audited.
+- RLS denies direct client writes to orders/order items. The existing customer
+  `create_order` RPC still creates and prices them. Server functions and RLS,
+  rather than route visibility, enforce management permissions.
+
+### Initial roles and Realtime setup
+
+1. Have each person register normally. Find their **user UUID** in Supabase
+   Authentication → Users. Do not use the publishable key as an admin key.
+2. In the SQL Editor, using a trusted administrator connection, assign the first
+   administrator (replace the UUID locally):
+
+   ```sql
+   update public.profiles set role = 'admin' where id = '<admin-user-uuid>';
+   ```
+
+3. To assign a manager or chef, use the registered user's UUID and the desired
+   `manager` or `chef` role (do not apply this to your admin account):
+
+   ```sql
+   begin;
+   update public.profiles set role = 'staff' where id = '<staff-user-uuid>';
+   insert into public.staff_members (profile_id, role, is_active)
+   values ('<staff-user-uuid>', 'chef', true)
+   on conflict (profile_id) do update set role = excluded.role, is_active = true;
+   commit;
+   ```
+
+   An admin may subsequently change or deactivate an existing staff record in
+   the Staff tab. The profile must also be `staff`; server and cashier do not
+   receive dashboard or kitchen access. Customers cannot assign themselves roles.
+4. The migration adds `orders` to the `supabase_realtime` publication if it
+   exists. Verify it in Supabase → Database → Replication (or create/configure
+   the publication if your project does not have it). Sign out/in after changing
+   roles, then use separate admin, chef, and customer sessions to test.
+5. For GitHub Pages, merge/deploy the code as usual and ensure the public URL and
+   publishable key are set as Actions variables. Apply the migration separately;
+   deploying frontend code does **not** migrate Supabase.
+
+Run `npm test` for the isolated PGlite SQL/RLS tests and mocked client tests;
+run `npm run typecheck` and `npm run build`. PGlite substitutes Supabase Auth and
+is not a substitute for testing real RLS, Realtime delivery, or reconnection on
+your Supabase project. Verify those with separate customer, manager, chef and
+admin accounts before using the dashboard in production.
