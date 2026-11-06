@@ -1,3 +1,4 @@
+import { imageUrl } from "../../lib/assets";
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Badge, Button, Card } from "../../components/ui";
@@ -298,12 +299,12 @@ export default function MenuPage() {
               <Card key={item.id} flush hoverable className="flex flex-col overflow-hidden">
                 <div className="relative">
                   <img
-                    src={item.image ?? "/images/placeholder.jpg"}
+                    src={imageUrl(item.image)}
                     alt={item.name}
                     loading="lazy"
                     className="h-44 w-full object-cover"
                     onError={(e) => {
-                      (e.target as HTMLImageElement).src = "/images/placeholder.jpg";
+                      (e.target as HTMLImageElement).src = imageUrl(null);
                     }}
                   />
                   <span className="absolute bottom-2 right-2 rounded-full bg-white/95 px-3 py-1 text-sm font-bold text-primary shadow">
