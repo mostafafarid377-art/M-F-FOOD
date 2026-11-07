@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import React, { Suspense, useState } from "react";
+import type { DeliveryPoint } from "./DeliveryMap";
+const DeliveryMap = React.lazy(() => import("./DeliveryMap"));
 import { Link, useNavigate } from "react-router-dom";
 import { Badge, Button, Card } from "../../components/ui";
 import { formatEGP } from "../../lib/format";
@@ -15,6 +17,7 @@ export interface DemoOrder {
   total_price: number;
   delivery_address: string | null;
   notes?: string | null;
+  delivery_details?: { building: string; apartment: string; floor: string; street: string; phone: string; destination: DeliveryPoint } | null;
   table_number: number | null;
   demo: true;
   items: { name: string; quantity: number; price_at_order: number }[];
@@ -53,7 +56,12 @@ export default function CheckoutPage() {
   const { currencySymbol, deliveryFee, minimumOrder } = useLayout();
 
   const [fulfillment, setFulfillment] = useState<"delivery" | "dine_in">("delivery");
-  const [address, setAddress] = useState("");
+  const [building, setBuilding] = useState("");
+  const [apartment, setApartment] = useState("");
+  const [floor, setFloor] = useState("");
+  const [street, setStreet] = useState("");
+  const [phone, setPhone] = useState("");
+  const [destination, setDestination] = useState<DeliveryPoint | null>(null);
   const [instructions, setInstructions] = useState("");
   const [tableNumber, setTableNumber] = useState("");
   const [placing, setPlacing] = useState(false);
@@ -101,8 +109,12 @@ export default function CheckoutPage() {
   const handlePlaceOrder = async () => {
     setError(null);
 
-    if (isDelivery && address.trim().length < 5) {
-      setError("Please enter a full delivery address");
+    if (isDelivery && !destination) {
+      setError("Please select your delivery location on the map.");
+      return;
+    }
+    if (isDelivery && (!street.trim() || !building.trim() || phone.replace(/[^0-9٠-٩۰-۹]/g, "").length < 7)) {
+      setError("Please enter your street, building and a valid phone number.");
       return;
     }
     if (!isDelivery) {
@@ -123,14 +135,15 @@ export default function CheckoutPage() {
       if (supabase) {
         // Server-side order creation: totals are computed in Postgres from
         // menu_items.price; the client never sends prices.
-        const orderArgs = {
-          p_items: orderItems,
-          p_delivery_address: isDelivery ? address.trim() : null,
-          p_table_number: isDelivery ? null : parseInt(tableNumber, 10),
-        };
-        const { data, error: rpcError } = isDelivery && instructions.trim()
-          ? await supabase.rpc("create_order_with_notes", { ...orderArgs, p_notes: instructions.trim() })
-          : await supabase.rpc("create_order", orderArgs);
+        const { data, error: rpcError } = isDelivery
+          ? await supabase.rpc("create_order_with_delivery_details", {
+              p_items: orderItems, p_building: building.trim(), p_apartment: apartment.trim(),
+              p_floor: floor.trim(), p_street: street.trim(), p_phone: phone.trim(),
+              p_instructions: instructions.trim(), p_lat: destination!.lat, p_lng: destination!.lng,
+            })
+          : await supabase.rpc("create_order", {
+              p_items: orderItems, p_delivery_address: null, p_table_number: parseInt(tableNumber, 10),
+            });
         if (rpcError) {
           throw new Error(rpcError.message);
         }
@@ -145,8 +158,9 @@ export default function CheckoutPage() {
         created_at: new Date().toISOString(),
         status: "pending",
         total_price: estimatedTotal,
-        delivery_address: isDelivery ? address.trim() : null,
+        delivery_address: isDelivery ? [street.trim(), `Building: ${building.trim()}`, floor.trim() && `Floor: ${floor.trim()}`, apartment.trim() && `Apartment: ${apartment.trim()}`].filter(Boolean).join(", ") : null,
         notes: isDelivery ? instructions.trim() || null : null,
+        delivery_details: isDelivery ? {building: building.trim(), apartment: apartment.trim(), floor: floor.trim(), street: street.trim(), phone: phone.trim(), destination: destination!} : null,
         table_number: isDelivery ? null : parseInt(tableNumber, 10),
         demo: true,
         items: items.map((item) => ({
@@ -210,17 +224,15 @@ export default function CheckoutPage() {
             <div className="mt-4">
               {isDelivery ? (
                 <div>
-                  <label htmlFor="address" className="mb-1 block text-sm font-medium text-gray-700">
-                    Delivery address
-                  </label>
-                  <textarea
-                    id="address"
-                    rows={3}
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Street, building, floor, apartment, landmark…"
-                    className="w-full rounded-md border border-primary-200 px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  />
+                  <Suspense fallback={<p>Loading map…</p>}><DeliveryMap value={destination} onChange={setDestination} /></Suspense>
+                  <h3 className="mt-6 font-bold">2. Delivery address</h3>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label htmlFor="delivery-street" className="text-sm font-medium text-gray-700 sm:col-span-2">Street <span aria-hidden="true">*</span><input id="delivery-street" aria-required="true" autoComplete="address-line1" maxLength={200} value={street} onChange={e => setStreet(e.target.value)} className="mt-1 w-full rounded-md border border-primary-200 px-3 py-2" /></label>
+                    <label htmlFor="delivery-building" className="text-sm font-medium text-gray-700">Building name / number <span aria-hidden="true">*</span><input id="delivery-building" aria-required="true" maxLength={160} value={building} onChange={e => setBuilding(e.target.value)} className="mt-1 w-full rounded-md border border-primary-200 px-3 py-2" /></label>
+                    <label htmlFor="delivery-apartment" className="text-sm font-medium text-gray-700">Apartment number (optional)<input id="delivery-apartment" maxLength={80} value={apartment} onChange={e => setApartment(e.target.value)} className="mt-1 w-full rounded-md border border-primary-200 px-3 py-2" /></label>
+                    <label htmlFor="delivery-floor" className="text-sm font-medium text-gray-700">Floor (optional)<input id="delivery-floor" maxLength={80} value={floor} onChange={e => setFloor(e.target.value)} className="mt-1 w-full rounded-md border border-primary-200 px-3 py-2" /></label>
+                    <label htmlFor="delivery-phone" className="text-sm font-medium text-gray-700">Phone number <span aria-hidden="true">*</span><input id="delivery-phone" aria-required="true" type="tel" autoComplete="tel" maxLength={30} value={phone} onChange={e => setPhone(e.target.value)} className="mt-1 w-full rounded-md border border-primary-200 px-3 py-2" /></label>
+                  </div>
                   <label htmlFor="delivery-instructions" className="mb-1 mt-3 block text-sm font-medium text-gray-700">Delivery instructions (optional)</label>
                   <textarea id="delivery-instructions" rows={2} maxLength={1000} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder="Gate code, directions, or delivery instructions" className="w-full rounded-md border border-primary-200 px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary" />
                 </div>
@@ -312,7 +324,7 @@ export default function CheckoutPage() {
           </Button>
           {isDemoMode && (
             <p className="mt-2 text-center text-xs text-gray-400">
-              Demo mode: the order will be simulated locally.
+              Demo mode: this order and delivery details stay in this browser and are not sent to the restaurant. Anyone using this browser can see them.
             </p>
           )}
         </Card>

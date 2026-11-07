@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth, useCart, useLayout } from "../providers";
 import { Badge, Button } from "../../components/ui";
+import { useNavigationAccess } from "./navigationAccess";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   [
@@ -18,6 +19,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 export function AppLayout() {
   const { restaurantName, currency, currencySymbol } = useLayout();
   const { user, logout, isDemoMode } = useAuth();
+  const access = useNavigationAccess(user, isDemoMode);
   const { count } = useCart();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -82,10 +84,10 @@ export function AppLayout() {
             <NavLink to="/orders" className={navLinkClass}>
               My Orders
             </NavLink>
-            {user && user.role !== "customer" && <NavLink to="/kitchen" className={navLinkClass}>Kitchen</NavLink>}
-            {user && user.role !== "customer" && <NavLink to="/admin" className={navLinkClass}>Dashboard</NavLink>}
-            {user && user.role !== "customer" && <NavLink to="/tables" className={navLinkClass}>Tables</NavLink>}
-            {user && <NavLink to="/driver" className={navLinkClass}>Driver</NavLink>}
+            {access.kitchen && <NavLink to="/kitchen" className={navLinkClass}>Kitchen</NavLink>}
+            {access.dashboard && <NavLink to="/admin" className={navLinkClass}>Dashboard</NavLink>}
+            {access.tables && <NavLink to="/tables" className={navLinkClass}>Tables</NavLink>}
+            {access.driver && <NavLink to="/driver" className={navLinkClass}>Driver</NavLink>}
           </div>
 
           <div className="ml-auto flex items-center gap-2">
@@ -156,10 +158,10 @@ export function AppLayout() {
               <NavLink to="/orders" className={navLinkClass} onClick={() => setMobileOpen(false)}>
                 My Orders
               </NavLink>
-              {user && user.role !== "customer" && <NavLink to="/kitchen" className={navLinkClass} onClick={() => setMobileOpen(false)}>Kitchen</NavLink>}
-              {user && user.role !== "customer" && <NavLink to="/admin" className={navLinkClass} onClick={() => setMobileOpen(false)}>Dashboard</NavLink>}
-              {user && user.role !== "customer" && <NavLink to="/tables" className={navLinkClass} onClick={() => setMobileOpen(false)}>Tables</NavLink>}
-              {user && <NavLink to="/driver" className={navLinkClass} onClick={() => setMobileOpen(false)}>Driver</NavLink>}
+              {access.kitchen && <NavLink to="/kitchen" className={navLinkClass} onClick={() => setMobileOpen(false)}>Kitchen</NavLink>}
+              {access.dashboard && <NavLink to="/admin" className={navLinkClass} onClick={() => setMobileOpen(false)}>Dashboard</NavLink>}
+              {access.tables && <NavLink to="/tables" className={navLinkClass} onClick={() => setMobileOpen(false)}>Tables</NavLink>}
+              {access.driver && <NavLink to="/driver" className={navLinkClass} onClick={() => setMobileOpen(false)}>Driver</NavLink>}
             </div>
             <div className="mt-3 border-t border-gray-100 pt-3">
               {user ? (

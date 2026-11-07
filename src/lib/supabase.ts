@@ -39,3 +39,21 @@ if (!isSupabaseConfigured) {
       "Copy .env.example to .env to connect a real project."
   );
 }
+
+// Recovery links return to the app root with this query flag. Capture the
+// recovery event before React Router can interpret Supabase's token fragment
+// as a hash route (GitHub Pages uses createHashRouter).
+export const isRecoveryCallback = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('auth_callback') === 'recovery';
+export const recoveryReady: Promise<boolean> | null = isRecoveryCallback && supabase
+  ? new Promise(resolve => {
+      const params = new URLSearchParams(window.location.hash.slice(1));
+      if (params.has('error') || params.has('error_code')) { resolve(false); return; }
+      let done = false;
+      let timeout: ReturnType<typeof setTimeout>;
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+        if (!done && event === 'PASSWORD_RECOVERY' && session) {
+          done = true; clearTimeout(timeout); subscription.unsubscribe(); resolve(true);
+        }
+      });
+      timeout = setTimeout(() => { if (!done) { done = true; subscription.unsubscribe(); resolve(false); } }, 20000);
+    }) : null;

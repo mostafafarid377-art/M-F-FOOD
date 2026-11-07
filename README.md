@@ -281,3 +281,15 @@ assignment/reassignment, GPS permission and movement, live map updates,
 disconnection/reconnection, stale locations, cancellation, delivery completion,
 and attempts to read or update another customer's/driver's data. Test
 concurrent session opening and review the project's actual RLS/grants as well.
+
+### Checkout delivery details and password recovery
+
+After the Phase 5 migration, apply `supabase/migrations/20240105_05_checkout_details.sql` once using your normal Supabase migration process **before deploying this frontend**. It adds a private per-order delivery details table and an atomic checkout RPC; existing orders and the original checkout functions remain intact. New delivery orders require the customer to select a map location, enter a street, building and phone, and may include apartment, floor and delivery instructions. The server still calculates prices. The customer, managers and the currently assigned active driver may read the new contact details; kitchen-only staff cannot read the phone. Previous orders have no new structured contact record and continue to use their existing address/profile data. Map tiles require internet access and OpenStreetMap receives the map viewport; geolocation is optional and requires browser permission and HTTPS (or localhost). A customer can enter known coordinates if the map cannot be used. Demo orders and details remain only in browser storage and are not sent to the restaurant.
+
+To enable **Forgot password** in Supabase Auth:
+
+1. In Authentication → URL Configuration, add the exact callback URL `https://mostafafarid377-art.github.io/M-F-FOOD/?auth_callback=recovery` to the redirect URL allowlist. For local development add `http://localhost:5173/?auth_callback=recovery` (and the exact HTTPS preview origin if testing there). Keep the correct production Site URL configured too.
+2. Enable email/password authentication and configure an email provider/SMTP suitable for your users. Supabase's default email service has delivery and rate limitations. Use the standard reset-password email template and its confirmation link; do not replace it with a link to a hash route. The application uses the Supabase implicit recovery flow, handles the recovery token fragment before starting the Pages hash router, and does not accept an ordinary logged-in session as a recovery link.
+3. After deploying, request a recovery email, open it in the same browser or another browser, set a new password and log in. Also test an expired or already-used link. Demo accounts cannot receive recovery emails.
+
+The tests simulate database RLS and auth events; they do not deliver real emails, prove SMTP configuration, or exercise physical GPS or live map tiles.

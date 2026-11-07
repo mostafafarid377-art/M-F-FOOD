@@ -14,12 +14,13 @@ type DisplayOrder = {
   total_price: number;
   delivery_address: string | null;
   notes: string | null;
+  phone: string | null;
   table_number: number | null;
   demo: boolean;
   lines: { name: string; quantity: number; price_at_order: number }[];
 };
 
-function fromRow(row: OrderWithItems): DisplayOrder {
+function fromRow(row: OrderWithItems & { delivery_details: {phone:string} | null }): DisplayOrder {
   return {
     id: row.id,
     created_at: row.created_at,
@@ -27,6 +28,7 @@ function fromRow(row: OrderWithItems): DisplayOrder {
     total_price: row.total_price,
     delivery_address: row.delivery_address,
     notes: row.notes,
+    phone: row.delivery_details?.phone ?? null,
     table_number: row.table_number,
     demo: false,
     lines: row.order_items.map((item) => ({
@@ -45,6 +47,7 @@ function fromDemo(order: DemoOrder): DisplayOrder {
     total_price: order.total_price,
     delivery_address: order.delivery_address,
     notes: order.notes ?? null,
+    phone: order.delivery_details?.phone ?? null,
     table_number: order.table_number,
     demo: true,
     lines: order.items,
@@ -75,7 +78,8 @@ export default function OrdersPage() {
       }
       const { data, error: fetchError } = await supabase
         .from("orders")
-        .select("*, order_items(*, menu_items(name))")
+        .select("*, order_items(*, menu_items(name)), delivery_details(phone)")
+        .eq("customer_id", user.id)
         .order("created_at", { ascending: false });
 
       if (cancelled) return;
@@ -83,7 +87,7 @@ export default function OrdersPage() {
         setError(fetchError.message);
         setOrders([]);
       } else {
-        setOrders(((data ?? []) as unknown as OrderWithItems[]).map(fromRow));
+        setOrders(((data ?? []) as unknown as (OrderWithItems & { delivery_details: {phone:string} | null })[]).map(fromRow));
       }
     }
 
@@ -188,6 +192,7 @@ export default function OrdersPage() {
                 ))}
               </ul>
 
+              {order.phone && <p className="mt-3 text-sm text-gray-600">Delivery phone: {order.phone}</p>}
               {order.notes && <p className="mt-3 text-sm text-gray-600">Delivery instructions: {order.notes}</p>}
               {!order.demo && order.delivery_address && <Link className="mt-3 inline-block text-sm font-semibold text-primary underline" to={`/track/${order.id}`}>Track delivery</Link>}
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2">

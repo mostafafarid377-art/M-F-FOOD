@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "node --test supabase/tests/*.test.mjs && vitest run src/features/management src/features/phase5"
+    "test": "node --test supabase/tests/*.test.mjs && vitest run src"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
