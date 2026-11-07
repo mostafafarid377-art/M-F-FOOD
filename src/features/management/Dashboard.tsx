@@ -8,10 +8,12 @@ import type { OrderStatus } from '../../types/supabase';
 import { useManagementAccess } from './access';
 import MenuManagement from './MenuManagement';
 import StaffManagement from './Staff';
+import Payments from '../payments/Management';
+import { Phase5Shell } from '../phase5/Shell';
 import { changeStatus, nextStatus, statusLabel, useLiveOrders, type ManagedOrder } from './orders';
 
 type History = { id: string; old_status: string | null; new_status: string; created_at: string; changed_by: string | null };
-const tabs = ['overview', 'orders', 'menu', 'staff'] as const;
+const tabs = ['overview', 'orders', 'menu', 'payments', 'staff'] as const;
 const dateKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
 function OrderDetails({ order, refresh }: { order: ManagedOrder; refresh: () => Promise<void> }) {
@@ -44,6 +46,6 @@ export default function Dashboard() {
     {error && <p role="alert" className="mb-4 rounded bg-red-50 p-3 text-red-700">{error}</p>}{loading && <p className="mb-4">Loading orders…</p>}
     {tab === 'overview' && <><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{stats.map(([label, value]) => <Card key={label} className="p-4"><p className="text-sm text-gray-500">{label}</p><p className="mt-1 text-2xl font-bold">{value}</p></Card>)}</div><p className="mt-2 text-xs text-gray-500">Today's sales is the value of orders marked completed today in your browser's local time; it is not a payment total.</p><h2 className="mb-3 mt-8 text-xl font-bold">Recent orders</h2>{orderList(orders.slice(0, 8))}</>}
     {tab === 'orders' && <><div className="mb-4 grid gap-3 sm:grid-cols-3"><label className="text-sm">Order number / UUID<input className="mt-1 w-full rounded border p-2" placeholder="Search order ID" value={search} onChange={e => setSearch(e.target.value)} /></label><label className="text-sm">Status<select className="mt-1 w-full rounded border p-2" value={status} onChange={e => setStatus(e.target.value)}><option value="">All statuses</option>{['pending','confirmed','preparing','ready','completed','cancelled'].map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}</select></label><label className="text-sm">Order date<input className="mt-1 w-full rounded border p-2" type="date" value={date} onChange={e => setDate(e.target.value)} /></label></div>{orderList(filtered)}</>}
-    {tab === 'menu' && <MenuManagement />}{tab === 'staff' && access === 'admin' && <StaffManagement />}
+    {tab === 'payments' && <Phase5Shell><Payments /></Phase5Shell>}{tab === 'menu' && <MenuManagement />}{tab === 'staff' && access === 'admin' && <StaffManagement />}
   </div>;
 }

@@ -5,6 +5,7 @@ import { formatEGP } from "../../lib/format";
 import { supabase } from "../../lib/supabase";
 import { useAuth, useLayout } from "../../app/providers";
 import { loadDemoOrders, type DemoOrder } from "../checkout/Page";
+import { tr, useArabic } from "../phase5/Shell";
 import type { OrderStatus, OrderWithItems } from "../../types/supabase";
 
 type DisplayOrder = {
@@ -15,12 +16,13 @@ type DisplayOrder = {
   delivery_address: string | null;
   notes: string | null;
   phone: string | null;
+  payment: {status:string;provider:string|null;payment_method:string|null} | null;
   table_number: number | null;
   demo: boolean;
   lines: { name: string; quantity: number; price_at_order: number }[];
 };
 
-function fromRow(row: OrderWithItems & { delivery_details: {phone:string} | null }): DisplayOrder {
+function fromRow(row: OrderWithItems & { delivery_details: {phone:string} | null; payments: {status:string;provider:string|null;payment_method:string|null} | null }): DisplayOrder {
   return {
     id: row.id,
     created_at: row.created_at,
@@ -29,6 +31,7 @@ function fromRow(row: OrderWithItems & { delivery_details: {phone:string} | null
     delivery_address: row.delivery_address,
     notes: row.notes,
     phone: row.delivery_details?.phone ?? null,
+    payment: row.payments ?? null,
     table_number: row.table_number,
     demo: false,
     lines: row.order_items.map((item) => ({
@@ -48,6 +51,7 @@ function fromDemo(order: DemoOrder): DisplayOrder {
     delivery_address: order.delivery_address,
     notes: order.notes ?? null,
     phone: order.delivery_details?.phone ?? null,
+    payment: null,
     table_number: order.table_number,
     demo: true,
     lines: order.items,
@@ -60,6 +64,7 @@ function fromDemo(order: DemoOrder): DisplayOrder {
  */
 export default function OrdersPage() {
   const { user, isDemoMode } = useAuth();
+  const ar = useArabic();
   const { currencySymbol } = useLayout();
   const location = useLocation();
   const placedId = (location.state as { placed?: string } | null)?.placed;
@@ -78,7 +83,7 @@ export default function OrdersPage() {
       }
       const { data, error: fetchError } = await supabase
         .from("orders")
-        .select("*, order_items(*, menu_items(name)), delivery_details(phone)")
+        .select("*, order_items(*, menu_items(name)), delivery_details(phone), payments(status,provider,payment_method)")
         .eq("customer_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -87,7 +92,7 @@ export default function OrdersPage() {
         setError(fetchError.message);
         setOrders([]);
       } else {
-        setOrders(((data ?? []) as unknown as (OrderWithItems & { delivery_details: {phone:string} | null })[]).map(fromRow));
+        setOrders(((data ?? []) as unknown as (OrderWithItems & { delivery_details: {phone:string} | null; payments: {status:string;provider:string|null;payment_method:string|null} | null })[]).map(fromRow));
       }
     }
 
@@ -192,6 +197,7 @@ export default function OrdersPage() {
                 ))}
               </ul>
 
+              {order.payment && <p className="mt-3 text-sm">{tr(ar,'Payment','الدفع')}: {order.payment.payment_method === 'cash' ? tr(ar,'Cash','نقداً') : 'Paymob'} · {({pending:tr(ar,'Pending','قيد الانتظار'),processing:tr(ar,'Processing','قيد المعالجة'),paid:tr(ar,'Paid','مدفوع'),failed:tr(ar,'Failed','فشل'),cancelled:tr(ar,'Cancelled','ملغي'),refunded:tr(ar,'Refunded','مسترد')} as Record<string,string>)[order.payment.status] || order.payment.status} {order.payment.provider === 'paymob' && <Link className="text-primary underline" to={`/payment/${order.id}`}>{tr(ar,'Payment details','تفاصيل الدفع')}</Link>}</p>}
               {order.phone && <p className="mt-3 text-sm text-gray-600">Delivery phone: {order.phone}</p>}
               {order.notes && <p className="mt-3 text-sm text-gray-600">Delivery instructions: {order.notes}</p>}
               {!order.demo && order.delivery_address && <Link className="mt-3 inline-block text-sm font-semibold text-primary underline" to={`/track/${order.id}`}>Track delivery</Link>}

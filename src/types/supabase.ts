@@ -13,7 +13,7 @@ export type OrderStatus =
   | "completed"
   | "cancelled";
 
-export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
+export type PaymentStatus = "pending" | "processing" | "paid" | "failed" | "cancelled" | "refunded";
 export type PaymentMethod = "cash" | "card" | "mobile";
 
 export type TableSessionStatus =
@@ -81,6 +81,9 @@ export interface PaymentRow {
   status: PaymentStatus;
   payment_method: PaymentMethod | null;
   transaction_id: string | null;
+  provider: string | null;
+  currency: string;
+  paid_at: string | null;
   amount: number; // piastres
   created_at: string;
   updated_at: string;

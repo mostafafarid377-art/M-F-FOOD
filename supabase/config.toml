@@ -1,0 +1,6 @@
+[functions.paymob-create-intention]
+verify_jwt = true
+
+# Paymob does not send a Supabase JWT. The function validates the Paymob HMAC.
+[functions.paymob-webhook]
+verify_jwt = false

@@ -15,6 +15,7 @@ import RegisterPage from "../features/auth/RegisterPage";
 import { Button } from "../components/ui";
 import { ManagementGate } from "../features/management/access";
 import { FloorGate, Phase5Shell } from "../features/phase5/Shell";
+const PaymentPage = React.lazy(() => import("../features/payments/Page"));
 const Tables = React.lazy(() => import("../features/phase5/Tables"));
 const DeliveryAdmin = React.lazy(() => import("../features/phase5/DeliveryAdmin"));
 const Driver = React.lazy(() => import("../features/phase5/Driver"));
@@ -46,8 +47,9 @@ export const router = isRecoveryCallback ? null : createRouter([
       { index: true, element: <HomePage /> },
       { path: "menu", element: <MenuPage /> },
       { path: "cart", element: <CartPage /> },
-      { path: "checkout", element: <CheckoutPage /> },
-      { path: "orders", element: <OrdersPage /> },
+      { path: "checkout", element: <Phase5Shell><CheckoutPage /></Phase5Shell> },
+      { path: "payment/:orderId", element: <Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><PaymentPage /></React.Suspense></Phase5Shell> },
+      { path: "orders", element: <Phase5Shell><OrdersPage /></Phase5Shell> },
       { path: "admin", element: <ManagementGate><React.Suspense fallback={<p className="p-8">Loading dashboard…</p>}><Dashboard /></React.Suspense></ManagementGate> },
       { path: "kitchen", element: <ManagementGate kitchen><React.Suspense fallback={<p className="p-8">Loading kitchen…</p>}><Kitchen /></React.Suspense></ManagementGate> },
       { path: "tables", element: <FloorGate><Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><Tables /></React.Suspense></Phase5Shell></FloorGate> },

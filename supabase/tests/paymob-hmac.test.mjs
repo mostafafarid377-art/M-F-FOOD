@@ -1,0 +1,21 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createHmac } from 'node:crypto';
+import { transactionString, verifyTransaction, signedEvent } from '../functions/_shared/paymob.mjs';
+const sample={id:192036465,pending:false,amount_cents:100000,success:true,is_auth:false,is_capture:false,is_standalone_payment:true,is_voided:false,is_refunded:false,is_3d_secure:true,integration_id:4097558,has_parent_transaction:false,order:{id:217503754},created_at:'2024-06-13T11:33:44.592345',currency:'EGP',source_data:{pan:'2346',type:'card',sub_type:'MasterCard'},error_occured:false,owner:302852};
+test('Paymob documented concatenation and SHA-512 signatures',async()=>{
+ const message='1000002024-06-13T11:33:44.592345EGPfalsefalse1920364654097558truefalsefalsefalsetruefalse217503754302852false2346MasterCardcardtrue';
+ assert.equal(transactionString(sample),message);
+ const sig=createHmac('sha512','test-secret').update(message).digest('hex');
+ assert.equal(await verifyTransaction(sample,sig,'test-secret'),true);
+ assert.equal(await verifyTransaction({...sample,amount_cents:1},sig,'test-secret'),false);
+ assert.equal(await verifyTransaction(sample,'bad','test-secret'),false);
+ assert.equal(await verifyTransaction({...sample,source_data:{}},sig,'test-secret'),false);
+ assert.deepEqual(signedEvent(sample,'4097558'),{order:'217503754',transaction:'192036465',amount:100000,currency:'EGP',state:'paid'});
+ assert.equal(signedEvent({...sample,pending:true,success:false},'4097558').state,'processing');
+ assert.equal(signedEvent({...sample,success:false},'4097558').state,'failed');
+ assert.throws(()=>signedEvent({...sample,currency:'USD'},'4097558'));
+ assert.throws(()=>signedEvent(sample,'9'));
+ assert.throws(()=>signedEvent({...sample,is_refunded:true},'4097558'));
+ assert.throws(()=>signedEvent({...sample,is_auth:true},'4097558'));
+});
