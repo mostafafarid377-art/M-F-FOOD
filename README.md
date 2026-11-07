@@ -133,14 +133,14 @@ bootstrap can promote existing profiles.
   orders, and (admins only) staff sections. Categories may be deleted; items
   in a deleted category become uncategorized. Item prices are entered in EGP
   and saved as integer piastres. Image fields accept a URL or `/images/` path.
-- `/kitchen` is for admins, active managers, and active chefs. It listens for
+- `/kitchen` is for admins and all active staff (managers, chefs, servers, and cashiers). It listens for
   order changes via Supabase Realtime, reloads on reconnection, and reconciles
   every 20 seconds when events are missed. “New” means pending; “Delayed”
   means 20 minutes since order creation, not a configurable SLA.
 - Database status `confirmed` is displayed as **Accepted** in management.
   Pending → Accepted → Preparing → Ready → Completed is enforced by
   `transition_order` with a row lock and expected-current-status check.
-  Chefs can advance through Ready; only managers/admins can complete or cancel
+  Active staff can advance through Ready; only managers/admins can complete or cancel
   pending, accepted, or preparing orders. Payments are separate and untouched.
 - The overview’s “Today's sales” is **completed order value**, based on the
   completion update time and the browser's local date. It is not paid revenue.
@@ -163,8 +163,8 @@ bootstrap can promote existing profiles.
    update public.profiles set role = 'admin' where id = '<admin-user-uuid>';
    ```
 
-3. To assign a manager or chef, use the registered user's UUID and the desired
-   `manager` or `chef` role (do not apply this to your admin account):
+3. To assign a staff member, use the registered user's UUID and the desired
+   `manager`, `chef`, `server`, or `cashier` role (do not apply this to your admin account):
 
    ```sql
    begin;
@@ -176,8 +176,8 @@ bootstrap can promote existing profiles.
    ```
 
    An admin may subsequently change or deactivate an existing staff record in
-   the Staff tab. The profile must also be `staff`; server and cashier do not
-   receive dashboard or kitchen access. Customers cannot assign themselves roles.
+   the Staff tab. The profile must also be `staff`. Active servers and cashiers
+   can access the kitchen, but not the dashboard. Customers cannot assign themselves roles.
 4. The migration adds `orders` to the `supabase_realtime` publication if it
    exists. Verify it in Supabase → Database → Replication (or create/configure
    the publication if your project does not have it). Sign out/in after changing
@@ -243,10 +243,12 @@ table with no open session must be reviewed and reset by an admin. Do not run
 
 ### Customer map and routing
 
-- The customer opens **My Orders → Track delivery**, and can choose a destination
-  on the map or explicitly use their current location. The admin enters verified
-  restaurant latitude/longitude in the delivery dashboard. Neither location is
-  guessed. Driver contact and GPS are shown only for the customer's own active
+- The customer chooses the delivery destination at checkout. After an order is
+  placed, **My Orders → Track delivery** shows a view-only map; the customer
+  cannot change the destination. Older orders without a saved destination may
+  have no map until a restaurant or driver location is available. The admin enters
+  verified restaurant latitude/longitude in the delivery dashboard. Neither
+  location is guessed. Driver contact and GPS are shown only for the customer's own active
   delivery; GPS appears after the driver starts sharing. An update older than
   two minutes is labelled stale. Realtime subscriptions reconnect and all views
   periodically reconcile in case events are missed.
@@ -293,3 +295,7 @@ To enable **Forgot password** in Supabase Auth:
 3. After deploying, request a recovery email, open it in the same browser or another browser, set a new password and log in. Also test an expired or already-used link. Demo accounts cannot receive recovery emails.
 
 The tests simulate database RLS and auth events; they do not deliver real emails, prove SMTP configuration, or exercise physical GPS or live map tiles.
+
+### Staff kitchen access and view-only tracking
+
+Apply `supabase/migrations/20240106_06_kitchen_tracking_permissions.sql` after the checkout-details migration and before deploying this frontend. All active employees (including servers and cashiers) may view active kitchen orders and advance them through Ready. Only managers/admins retain dashboard access and can complete or cancel orders. Inactive employees and customers remain blocked. Delivery destinations are selected at checkout; the legacy customer destination-edit RPC and direct destination writes are revoked, including for older orders. Existing orders and saved destinations are not changed. For old orders without a destination, the tracking map may not be available; contact the restaurant to arrange delivery.
