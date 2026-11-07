@@ -1,0 +1,3 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="referrer" content="no-referrer"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Returning to your order</title></head><body><p>Returning to your order…</p><script>
+(function(){var p=new URLSearchParams(location.search),id=p.get('mf_order'),base=location.pathname.replace(/payment-return\.html$/, '');if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id||'')){location.replace(base);return;}location.replace(base+(base==='/'?'payment/':'#/payment/')+encodeURIComponent(id));})();
+</script></body></html>
