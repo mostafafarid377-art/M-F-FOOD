@@ -12,6 +12,7 @@ afterEach(() => cleanup());
 describe('management route gate', () => {
   it('rejects customers', async () => { state.user = { id: 'customer', role: 'customer' }; show(); expect(await screen.findByText('Access denied')).toBeTruthy(); expect(screen.queryByText('Protected content')).toBeNull(); });
   it('blocks kitchen staff from admin but allows the kitchen', async () => { state.user = { id: 'chef', role: 'staff' }; state.staffRole = 'chef'; state.active = true; const view = show(); expect(await screen.findByText('Access denied')).toBeTruthy(); view.unmount(); show(true); expect(await screen.findByText('Protected content')).toBeTruthy(); });
+  it.each(['server','cashier'])('allows active %s kitchen access but denies the dashboard', async role => { state.user = { id: role, role: 'staff' }; state.staffRole = role; state.active = true; const view = show(true); expect(await screen.findByText('Protected content')).toBeTruthy(); view.unmount(); show(); expect(await screen.findByText('Access denied')).toBeTruthy(); });
   it('blocks inactive staff', async () => { state.user = { id: 'chef', role: 'staff' }; state.staffRole = 'chef'; state.active = false; show(true); expect(await screen.findByText('Access denied')).toBeTruthy(); });
   it('allows active managers to dashboard', async () => { state.user = { id: 'manager', role: 'staff' }; state.staffRole = 'manager'; state.active = true; show(); expect(await screen.findByText('Protected content')).toBeTruthy(); });
 });

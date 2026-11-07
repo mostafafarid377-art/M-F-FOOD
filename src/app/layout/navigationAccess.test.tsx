@@ -15,7 +15,9 @@ describe('role-aware navigation',()=>{
   expect(navigationCapabilities('staff',{role:'chef',is_active:true},true)).toEqual({dashboard:false,kitchen:true,tables:false,driver:true});
   expect(navigationCapabilities('staff',{role:'manager',is_active:true},false)).toEqual({dashboard:true,kitchen:true,tables:true,driver:false});
   expect(navigationCapabilities('staff',{role:'server',is_active:true},false).tables).toBe(true);
-  expect(navigationCapabilities('staff',{role:'cashier',is_active:true},false).kitchen).toBe(false);
+  expect(navigationCapabilities('staff',{role:'cashier',is_active:true},false).kitchen).toBe(true);
+  expect(navigationCapabilities('staff',{role:'server',is_active:true},false).kitchen).toBe(true);
+  expect(navigationCapabilities('staff',{role:'cashier',is_active:false},false).kitchen).toBe(false);
   expect(navigationCapabilities('staff',{role:'manager',is_active:false},false).dashboard).toBe(false);
   expect(navigationCapabilities('customer',{role:'manager',is_active:true},false).dashboard).toBe(false);
   expect(navigationCapabilities('admin',null,false).tables).toBe(true);
@@ -23,6 +25,11 @@ describe('role-aware navigation',()=>{
  it('hides Driver from a customer in desktop and mobile',async()=>{
   render(<MemoryRouter><AppLayout/></MemoryRouter>);fireEvent.click(screen.getByLabelText('Toggle navigation menu'));
   await waitFor(()=>expect(screen.queryByText('Driver')).toBeNull());expect(screen.queryByText('Kitchen')).toBeNull();expect(screen.getAllByText('My Orders')).toHaveLength(2);
+ });
+ it('shows the kitchen for active servers on both menus without a dashboard',async()=>{
+  m.role='staff';m.staff={role:'server',is_active:true};
+  render(<MemoryRouter><AppLayout/></MemoryRouter>);fireEvent.click(screen.getByLabelText('Toggle navigation menu'));
+  await waitFor(()=>expect(screen.getAllByText('Kitchen')).toHaveLength(2));expect(screen.getAllByText('Tables')).toHaveLength(2);expect(screen.queryByText('Dashboard')).toBeNull();
  });
  it('shows matching driver and chef links on both menus',async()=>{
   m.role='staff';m.staff={role:'chef',is_active:true};m.driver=true;

@@ -8,7 +8,7 @@ const none: Capabilities = {dashboard:false, kitchen:false, tables:false, driver
 export function navigationCapabilities(role: AuthUser['role'], staff: {role: StaffRole; is_active: boolean} | null, isDriver: boolean): Capabilities {
   const admin = role === 'admin';
   const employee = role === 'staff' && staff?.is_active ? staff.role : null;
-  return { dashboard: admin || employee === 'manager', kitchen: admin || employee === 'manager' || employee === 'chef', tables: admin || employee === 'manager' || employee === 'server' || employee === 'cashier', driver: isDriver };
+  return { dashboard: admin || employee === 'manager', kitchen: admin || (employee !== null && ['manager', 'chef', 'server', 'cashier'].includes(employee)), tables: admin || employee === 'manager' || employee === 'server' || employee === 'cashier', driver: isDriver };
 }
 export function useNavigationAccess(user: AuthUser | null, isDemoMode: boolean): Capabilities {
   const [result, setResult] = useState<{id:string; role:AuthUser['role']; capabilities:Capabilities} | null>(null);
