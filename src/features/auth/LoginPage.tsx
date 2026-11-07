@@ -11,6 +11,7 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -66,7 +67,7 @@ export default function LoginPage() {
             </label>
             <input
               id="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               required
               autoComplete="current-password"
               value={password}
@@ -74,6 +75,10 @@ export default function LoginPage() {
               className="w-full rounded-md border border-primary-200 px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
               placeholder="••••••••"
             />
+            <div className="mt-2 flex items-center justify-between gap-2 text-sm">
+              <button type="button" className="font-medium text-primary hover:underline" aria-pressed={showPassword} onClick={() => setShowPassword(!showPassword)}>{showPassword ? "Hide password" : "Show password"}</button>
+              <Link to="/forgot-password" className="font-medium text-primary hover:underline">Forgot password?</Link>
+            </div>
           </div>
 
           {error && (

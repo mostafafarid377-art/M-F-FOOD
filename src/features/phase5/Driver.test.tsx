@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter } from 'react-router-dom';
 const m=vi.hoisted(()=>({deliveries:[] as any[],updates:[] as any[],watchSuccess:null as any,watchError:null as any,refresh:null as any,clear:vi.fn()}));
 vi.mock('../../app/providers',()=>({useAuth:()=>({user:{id:'driver'},isLoading:false,isDemoMode:false}),useLayout:()=>({currencySymbol:'£'})}));
-vi.mock('../../lib/supabase',()=>({supabase:{from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:{id:'driver',is_active:true},error:null})})})}),rpc:async(name:string,args:any)=>{if(name==='driver_deliveries')return {data:m.deliveries,error:null};if(name==='publish_driver_location'){m.updates.push(args);return {data:null,error:null};}return {data:null,error:null};}}}));
+vi.mock('../../lib/supabase',()=>({supabase:{from:(table:string)=>({select:()=>table==='delivery_details'?({in:async()=>({data:[{order_id:'11111111-1111-4111-8111-111111111111',phone:'01234567890'}],error:null})}):({eq:()=>({maybeSingle:async()=>({data:{id:'driver',is_active:true},error:null})})})}),rpc:async(name:string,args:any)=>{if(name==='driver_deliveries')return {data:m.deliveries,error:null};if(name==='publish_driver_location'){m.updates.push(args);return {data:null,error:null};}return {data:null,error:null};}}}));
 vi.mock('./live',()=>({useRealtimeRefresh:(_tables:any,refresh:any)=>{m.refresh=refresh;React.useEffect(()=>{refresh();},[]);return 'Live';}}));
 import Driver from './Driver';
 const delivery={order_id:'11111111-1111-4111-8111-111111111111',status:'on_the_way',order_status:'ready',address:'Example address',notes:null,assigned_at:'2024-01-01',latitude:null,longitude:null,total_price:12500,items:[{name:'Burger',quantity:1}]};
@@ -24,6 +24,6 @@ describe('driver GPS',()=>{
   act(()=>m.watchError({code:1,message:'Permission denied'}));expect(m.clear).toHaveBeenCalledWith(17);expect(screen.getByRole('status').textContent).toContain('Permission denied');
  });
  it('does not offer GPS before the delivery starts',async()=>{
-  m.deliveries=[{...delivery,status:'assigned'}];render(<MemoryRouter><Driver/></MemoryRouter>);await screen.findByText('Example address');expect(screen.queryByRole('button',{name:'Start sharing GPS'})).toBeNull();
+  m.deliveries=[{...delivery,status:'assigned'}];render(<MemoryRouter><Driver/></MemoryRouter>);await screen.findByText('Example address');expect(screen.getByText('01234567890')).toBeTruthy();expect(screen.queryByRole('button',{name:'Start sharing GPS'})).toBeNull();
  });
 });

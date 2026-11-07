@@ -8,6 +8,9 @@ import CartPage from "../features/cart/Page";
 import CheckoutPage from "../features/checkout/Page";
 import OrdersPage from "../features/orders/Page";
 import LoginPage from "../features/auth/LoginPage";
+import ForgotPasswordPage from "../features/auth/ForgotPasswordPage";
+import RecoveryCallback from "../features/auth/RecoveryCallback";
+import { isRecoveryCallback } from "../lib/supabase";
 import RegisterPage from "../features/auth/RegisterPage";
 import { Button } from "../components/ui";
 import { ManagementGate } from "../features/management/access";
@@ -35,7 +38,7 @@ function NotFoundPage() {
 // GitHub Pages has no SPA fallback for refreshed deep links. Use hash routes
 // under a subdirectory, while keeping clean browser routes in local development.
 const createRouter = import.meta.env.BASE_URL === "/" ? createBrowserRouter : createHashRouter;
-export const router = createRouter([
+export const router = isRecoveryCallback ? null : createRouter([
   {
     path: "/",
     element: <AppLayout />,
@@ -52,6 +55,7 @@ export const router = createRouter([
       { path: "driver", element: <Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><Driver /></React.Suspense></Phase5Shell> },
       { path: "track/:orderId", element: <Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><Tracking /></React.Suspense></Phase5Shell> },
       { path: "login", element: <LoginPage /> },
+      { path: "forgot-password", element: <ForgotPasswordPage /> },
       { path: "register", element: <RegisterPage /> },
       { path: "*", element: <NotFoundPage /> },
     ],
@@ -59,11 +63,12 @@ export const router = createRouter([
 ]);
 
 export default function App() {
+  if (isRecoveryCallback) return <RecoveryCallback />;
   return (
     <LayoutProvider>
       <AuthProvider>
         <CartProvider>
-          <RouterProvider router={router} />
+          <RouterProvider router={router!} />
         </CartProvider>
       </AuthProvider>
     </LayoutProvider>
