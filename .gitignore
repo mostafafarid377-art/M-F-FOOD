@@ -6,6 +6,10 @@ dist-ssr
 # Environment — never commit real credentials
 .env
 .env.*
+.envrc
+.envrc.*
+*.env
+*.env.*
 !.env.example
 
 # Editor / OS
