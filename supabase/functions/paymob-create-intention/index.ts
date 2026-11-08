@@ -1,9 +1,13 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { PayloadTooLarge, readJsonLimited } from '../_shared/http.mjs';
+// This hard pause must only be lifted in a separate approved change.
+const PAYMOB_PAUSED = true;
 const cors = {'Access-Control-Allow-Origin':'*','Access-Control-Allow-Headers':'authorization, x-client-info, apikey, content-type','Access-Control-Allow-Methods':'POST, OPTIONS'};
 const reply = (status:number,body:unknown) => new Response(JSON.stringify(body),{status,headers:{...cors,'Content-Type':'application/json','Cache-Control':'no-store'}});
 Deno.serve(async (req:Request) => {
  if(req.method==='OPTIONS')return new Response(null,{headers:cors});
  if(req.method!=='POST')return reply(405,{error:'Method not allowed'});
+ if(PAYMOB_PAUSED)return reply(503,{error:'Online payments are paused'});
  try {
   const url=Deno.env.get('SUPABASE_URL'), anon=Deno.env.get('SUPABASE_ANON_KEY'), service=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const secret=Deno.env.get('PAYMOB_SECRET_KEY'), pub=Deno.env.get('PAYMOB_PUBLIC_KEY'), integration=Deno.env.get('PAYMOB_INTEGRATION_ID'), app=Deno.env.get('PAYMOB_APP_BASE_URL');
@@ -12,7 +16,8 @@ Deno.serve(async (req:Request) => {
   const auth=req.headers.get('Authorization')||'';if(!auth.startsWith('Bearer '))return reply(401,{error:'Authentication required'});
   const userClient=createClient(url,anon,{global:{headers:{Authorization:auth}},auth:{persistSession:false}});
   const {data:{user},error:userError}=await userClient.auth.getUser(auth.slice(7));if(userError||!user)return reply(401,{error:'Authentication required'});
-  const body=await req.json();const order=body?.order_id,phone=String(body?.phone||'').trim();
+  let body;try {body=await readJsonLimited(req,4096);} catch(error) {return reply(error instanceof PayloadTooLarge ? 413 : 400,{error:'Invalid request'});}
+  const order=body?.order_id,phone=String(body?.phone||'').trim();
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(order||'')||phone.length>30||phone.replace(/[^0-9٠-٩۰-۹]/g,'').length<7||!user.email)return reply(400,{error:'Valid order and billing phone are required'});
   const db=createClient(url,service,{auth:{persistSession:false}});
   const {data:claim,error:claimError}=await db.rpc('claim_paymob_intention',{p_order:order,p_user:user.id});

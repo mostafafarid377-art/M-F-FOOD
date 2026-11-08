@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import type { ReactNode } from "react";
@@ -238,88 +239,69 @@ async function fetchAuthUser(userId: string, email: string | null): Promise<Auth
 const DEMO_USER_KEY = "mf-food-demo-user";
 const DEMO_USERS_KEY = "mf-food-demo-users";
 
-type DemoRecord = { email: string; password: string; fullName: string };
-
-function demoUsers(): DemoRecord[] {
-  try {
-    return JSON.parse(localStorage.getItem(DEMO_USERS_KEY) ?? "[]") as DemoRecord[];
-  } catch {
-    return [];
-  }
+// Demo-only verifier: never write plaintext passwords to browser storage.
+type DemoRecord = {email:string;fullName:string;salt:string;verifier:string};
+async function verifier(password:string,salt:string):Promise<string> {
+ const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);
+ const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:new TextEncoder().encode(salt),iterations:100000},key,256);
+ return Array.from(new Uint8Array(bits),x=>x.toString(16).padStart(2,'0')).join('');
+}
+let demoReadInFlight: Promise<DemoRecord[]> | null = null;
+function demoUsers():Promise<DemoRecord[]> {
+ if(!demoReadInFlight){demoReadInFlight=readDemoUsers().finally(()=>{demoReadInFlight=null;});}
+ return demoReadInFlight;
+}
+async function readDemoUsers():Promise<DemoRecord[]> {
+ let records: Array<DemoRecord & {password?:string}>;
+ try { records=JSON.parse(localStorage.getItem(DEMO_USERS_KEY) ?? '[]'); if(!Array.isArray(records)) return []; }
+ catch {return [];}
+ let migrated=false;
+ const result=await Promise.all(records.map(async item=>{
+   if(typeof item.password !== 'string')return item;
+   migrated=true;const salt=crypto.randomUUID();return {email:item.email,fullName:item.fullName,salt,verifier:await verifier(item.password,salt)};
+ }));
+ if(migrated)localStorage.setItem(DEMO_USERS_KEY,JSON.stringify(result));
+ return result;
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isDemoMode = !isSupabaseConfigured;
+  const authGeneration = useRef(0);
 
   const refresh = useCallback(async () => {
     if (!supabase) return;
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (session?.user) {
-      const profile = await fetchAuthUser(session.user.id, session.user.email ?? null);
-      setUser(profile);
-    } else {
-      setUser(null);
-    }
+    const request = ++authGeneration.current;
+    const {data:{session}} = await supabase.auth.getSession();
+    if(request !== authGeneration.current) return;
+    if(session?.user){const profile=await fetchAuthUser(session.user.id,session.user.email ?? null);if(request===authGeneration.current)setUser(profile);}
+    else setUser(null);
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    if (!supabase) {
-      // Demo mode: restore a locally simulated session (no network involved).
-      try {
-        const raw = localStorage.getItem(DEMO_USER_KEY);
-        if (raw) setUser(JSON.parse(raw) as AuthUser);
-      } catch {
-        /* ignore */
-      }
-      setIsLoading(false);
-      return () => {
-        cancelled = true;
-      };
+    let cancelled=false;
+    if(!supabase){
+      try {const raw=localStorage.getItem(DEMO_USER_KEY);if(raw)setUser(JSON.parse(raw) as AuthUser);} catch {}
+      void demoUsers().catch(()=>{}); // Migrate old local demo records when possible.
+      setIsLoading(false);return ()=>{cancelled=true;};
     }
-
-    supabase.auth
-      .getSession()
-      .then(async ({ data: { session } }) => {
-        if (cancelled) return;
-        if (session?.user) {
-          const profile = await fetchAuthUser(
-            session.user.id,
-            session.user.email ?? null
-          );
-          if (!cancelled) setUser(profile);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        // Defer to avoid Supabase lock re-entrancy issues.
-        setTimeout(async () => {
-          const profile = await fetchAuthUser(
-            session.user.id,
-            session.user.email ?? null
-          );
-          setUser(profile);
-        }, 0);
-      } else {
-        setUser(null);
-      }
+    const initial=++authGeneration.current;
+    supabase.auth.getSession().then(async ({data:{session}})=>{
+      if(cancelled || initial!==authGeneration.current)return;
+      if(session?.user){const profile=await fetchAuthUser(session.user.id,session.user.email ?? null);if(!cancelled&&initial===authGeneration.current)setUser(profile);}
+      else setUser(null);
+    }).catch(()=>{if(!cancelled&&initial===authGeneration.current)setUser(null);}).finally(()=>{if(!cancelled&&initial===authGeneration.current)setIsLoading(false);});
+    let deferred:ReturnType<typeof setTimeout>|undefined;
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{
+      const request=++authGeneration.current;clearTimeout(deferred);
+      if(!session?.user){setUser(null);setIsLoading(false);return;}
+      setUser(previous=>previous?.id===session.user.id?previous:null);setIsLoading(true);
+      deferred=setTimeout(()=>{void fetchAuthUser(session.user.id,session.user.email ?? null).then(profile=>{
+        if(!cancelled&&request===authGeneration.current)setUser(profile);
+      }).catch(()=>{if(!cancelled&&request===authGeneration.current)setUser(null);}).finally(()=>{if(!cancelled&&request===authGeneration.current)setIsLoading(false);});},0);
     });
-
-    return () => {
-      cancelled = true;
-      subscription.unsubscribe();
-    };
+    return ()=>{cancelled=true;authGeneration.current++;clearTimeout(deferred);subscription.unsubscribe();};
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
@@ -332,10 +314,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       // ---- demo mode ----
-      const record = demoUsers().find(
+      const record = (await demoUsers()).find(
         (u) => u.email.toLowerCase() === email.toLowerCase()
       );
-      if (!record || record.password !== password) {
+      if (!record || !record.salt || await verifier(password,record.salt) !== record.verifier) {
         throw new Error("Invalid email or password");
       }
       const demo: AuthUser = {
@@ -367,11 +349,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         // ---- demo mode ----
-        const users = demoUsers();
+        const users = await demoUsers();
         if (users.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
           throw new Error("An account with this email already exists");
         }
-        users.push({ email, password, fullName });
+        const salt=crypto.randomUUID();
+        users.push({ email, fullName, salt, verifier:await verifier(password,salt) });
         localStorage.setItem(DEMO_USERS_KEY, JSON.stringify(users));
         const demo: AuthUser = {
           id: `demo-${email}`,
@@ -389,6 +372,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    authGeneration.current++; setUser(null);
     try {
       if (supabase) {
         await supabase.auth.signOut();

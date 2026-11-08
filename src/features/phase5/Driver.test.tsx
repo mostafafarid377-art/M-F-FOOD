@@ -3,13 +3,13 @@ import React from 'react';
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-const m=vi.hoisted(()=>({deliveries:[] as any[],updates:[] as any[],watchSuccess:null as any,watchError:null as any,refresh:null as any,clear:vi.fn()}));
-vi.mock('../../app/providers',()=>({useAuth:()=>({user:{id:'driver'},isLoading:false,isDemoMode:false}),useLayout:()=>({currencySymbol:'£'})}));
+const m=vi.hoisted(()=>({deliveries:[] as any[],updates:[] as any[],watchSuccess:null as any,watchError:null as any,refresh:null as any,clear:vi.fn(),userId:'driver'}));
+vi.mock('../../app/providers',()=>({useAuth:()=>({user:{id:m.userId},isLoading:false,isDemoMode:false}),useLayout:()=>({currencySymbol:'£'})}));
 vi.mock('../../lib/supabase',()=>({supabase:{from:(table:string)=>({select:()=>table==='delivery_details'?({in:async()=>({data:[{order_id:'11111111-1111-4111-8111-111111111111',phone:'01234567890'}],error:null})}):({eq:()=>({maybeSingle:async()=>({data:{id:'driver',is_active:true},error:null})})})}),rpc:async(name:string,args:any)=>{if(name==='driver_deliveries')return {data:m.deliveries,error:null};if(name==='publish_driver_location'){m.updates.push(args);return {data:null,error:null};}return {data:null,error:null};}}}));
 vi.mock('./live',()=>({useRealtimeRefresh:(_tables:any,refresh:any)=>{m.refresh=refresh;React.useEffect(()=>{refresh();},[]);return 'Live';}}));
 import Driver from './Driver';
 const delivery={order_id:'11111111-1111-4111-8111-111111111111',status:'on_the_way',order_status:'ready',address:'Example address',notes:null,assigned_at:'2024-01-01',latitude:null,longitude:null,total_price:12500,items:[{name:'Burger',quantity:1}]};
-beforeEach(()=>{m.deliveries=[{...delivery}];m.updates=[];m.clear.mockClear();m.watchSuccess=null;m.watchError=null;Object.defineProperty(window,'isSecureContext',{value:true,configurable:true});Object.defineProperty(navigator,'geolocation',{configurable:true,value:{watchPosition:(success:any,error:any)=>{m.watchSuccess=success;m.watchError=error;return 17;},clearWatch:m.clear}});});
+beforeEach(()=>{m.userId='driver';m.deliveries=[{...delivery}];m.updates=[];m.clear.mockClear();m.watchSuccess=null;m.watchError=null;Object.defineProperty(window,'isSecureContext',{value:true,configurable:true});Object.defineProperty(navigator,'geolocation',{configurable:true,value:{watchPosition:(success:any,error:any)=>{m.watchSuccess=success;m.watchError=error;return 17;},clearWatch:m.clear}});});
 afterEach(()=>cleanup());
 describe('driver GPS',()=>{
  it('shares GPS only after the driver explicitly starts, and stops on cancellation',async()=>{
@@ -26,4 +26,11 @@ describe('driver GPS',()=>{
  it('does not offer GPS before the delivery starts',async()=>{
   m.deliveries=[{...delivery,status:'assigned'}];render(<MemoryRouter><Driver/></MemoryRouter>);await screen.findByText('Example address');expect(screen.getByText('01234567890')).toBeTruthy();expect(screen.queryByRole('button',{name:'Start sharing GPS'})).toBeNull();
  });
+ it('stops the previous driver watch on account change and ignores its late callback',async()=>{
+  const view=render(<MemoryRouter><Driver/></MemoryRouter>);fireEvent.click(await screen.findByRole('button',{name:'Start sharing GPS'}));const old=m.watchSuccess;
+  m.userId='other-driver';view.rerender(<MemoryRouter><Driver/></MemoryRouter>);
+  expect(m.clear).toHaveBeenCalledWith(17);
+  await act(async()=>old({coords:{latitude:30.1,longitude:31.2}}));expect(m.updates).toHaveLength(0);
+ });
+
 });

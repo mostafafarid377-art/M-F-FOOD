@@ -63,6 +63,11 @@ function fromDemo(order: DemoOrder): DisplayOrder {
  * when Supabase is connected).
  */
 export default function OrdersPage() {
+  const {user} = useAuth();
+  return <OrdersSession key={user?.id ?? "signed-out"} />;
+}
+
+function OrdersSession() {
   const { user, isDemoMode } = useAuth();
   const ar = useArabic();
   const { currencySymbol } = useLayout();
@@ -74,11 +79,12 @@ export default function OrdersPage() {
 
   useEffect(() => {
     let cancelled = false;
-
+    let request = 0;
     async function load() {
       if (!user) return;
+      const current = ++request;
       if (!supabase) {
-        setOrders(loadDemoOrders().map(fromDemo));
+        setOrders(loadDemoOrders().filter(order => order.customer_id === user.id).map(fromDemo));
         return;
       }
       const { data, error: fetchError } = await supabase
@@ -87,7 +93,7 @@ export default function OrdersPage() {
         .eq("customer_id", user.id)
         .order("created_at", { ascending: false });
 
-      if (cancelled) return;
+      if (cancelled || current !== request) return;
       if (fetchError) {
         setError(fetchError.message);
         setOrders([]);
@@ -96,11 +102,13 @@ export default function OrdersPage() {
       }
     }
 
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [user, placedId]);
+    void load();
+    if(!supabase || !user) return () => { cancelled = true; };
+    const channel = supabase.channel(`customer-orders-${user.id}`).on('postgres_changes',{event:'*',schema:'public',table:'orders',filter:`customer_id=eq.${user.id}`},()=>void load()).subscribe(status=>{if(status==='SUBSCRIBED')void load();});
+    const poll=setInterval(()=>void load(),20000);
+    const online=()=>void load();window.addEventListener('online',online);
+    return () => {cancelled=true;request++;clearInterval(poll);window.removeEventListener('online',online);void supabase?.removeChannel(channel);};
+  }, [user?.id, placedId]);
 
   if (!user) {
     return (
