@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { usablePublicConfig } from "./productionConfig";
 
 /**
  * Supabase client bootstrap.
@@ -16,27 +17,17 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as
   | string
   | undefined;
 
-export const isSupabaseConfigured = Boolean(
-  supabaseUrl &&
-    supabaseAnonKey &&
-    !supabaseUrl.includes("your-project-ref")
-);
-
-export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(supabaseUrl as string, supabaseAnonKey as string, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-      },
-    })
-  : null;
+let client: SupabaseClient | null = null;
+if (usablePublicConfig(supabaseUrl, supabaseAnonKey, import.meta.env.PROD)) {
+  try { client = createClient(supabaseUrl!, supabaseAnonKey!, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}}); } catch { /* Do not log configuration. */ }
+}
+export const supabase: SupabaseClient | null = client;
+export const isSupabaseConfigured = Boolean(client);
 
 if (!isSupabaseConfigured) {
   // eslint-disable-next-line no-console
   console.warn(
-    "[M-F-FOOD] Supabase env vars missing — running in demo mode. " +
-      "Copy .env.example to .env to connect a real project."
+    import.meta.env.PROD ? "[M-F-FOOD] Supabase configuration unavailable." : "[M-F-FOOD] Supabase configuration unavailable; local demo mode."
   );
 }
 

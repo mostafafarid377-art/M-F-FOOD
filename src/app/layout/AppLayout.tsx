@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth, useCart, useLayout } from "../providers";
-import { Badge, Button } from "../../components/ui";
+import { ButtonLink, Badge, Button } from "../../components/ui";
+import {tr, useArabic} from "../../features/phase5/Shell";
 import { useNavigationAccess } from "./navigationAccess";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -17,6 +18,7 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
  * mobile <768px), routed content via <Outlet/>, and a footer.
  */
 export function AppLayout() {
+  const ar=useArabic();
   const { restaurantName, currency, currencySymbol } = useLayout();
   const { user, logout, isDemoMode } = useAuth();
   const access = useNavigationAccess(user, isDemoMode);
@@ -32,13 +34,15 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-screen flex-col bg-sand">
+      <button type="button" onClick={()=>document.getElementById("main-content")?.focus()} className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-3 focus:text-primary">{tr(ar,'Skip to content','تخطى إلى المحتوى')}</button>
       {/* ------------------------------ Navbar ------------------------------ */}
       <header className="sticky top-0 z-40 border-b border-primary-100 bg-white/90 backdrop-blur">
         <nav className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-3 md:gap-4">
           {/* Mobile hamburger (<768px) */}
           <button
             type="button"
-            aria-label="Toggle navigation menu"
+            aria-label={tr(ar,"Toggle navigation menu","فتح أو إغلاق قائمة التنقل")}
+            aria-controls="mobile-navigation"
             aria-expanded={mobileOpen}
             onClick={() => setMobileOpen((open) => !open)}
             className="rounded-md p-2 text-primary hover:bg-primary-50 md:hidden"
@@ -74,27 +78,27 @@ export function AppLayout() {
           )}
 
           {/* Desktop links */}
-          <div className="ml-4 hidden items-center gap-1 md:flex">
+          <div className="ms-4 hidden items-center gap-1 md:flex">
             <NavLink to="/" end className={navLinkClass}>
-              Home
+              {tr(ar,'Home','الرئيسية')}
             </NavLink>
             <NavLink to="/menu" className={navLinkClass}>
-              Menu
+              {tr(ar,'Menu','القائمة')}
             </NavLink>
             <NavLink to="/orders" className={navLinkClass}>
-              My Orders
+              {tr(ar,'My Orders','طلباتي')}
             </NavLink>
-            {access.kitchen && <NavLink to="/kitchen" className={navLinkClass}>Kitchen</NavLink>}
-            {access.dashboard && <NavLink to="/admin" className={navLinkClass}>Dashboard</NavLink>}
-            {access.tables && <NavLink to="/tables" className={navLinkClass}>Tables</NavLink>}
-            {access.driver && <NavLink to="/driver" className={navLinkClass}>Driver</NavLink>}
+            {access.kitchen && <NavLink to="/kitchen" className={navLinkClass}>{tr(ar,'Kitchen','المطبخ')}</NavLink>}
+            {access.dashboard && <NavLink to="/admin" className={navLinkClass}>{tr(ar,'Dashboard','لوحة الإدارة')}</NavLink>}
+            {access.tables && <NavLink to="/tables" className={navLinkClass}>{tr(ar,'Tables','الطاولات')}</NavLink>}
+            {access.driver && <NavLink to="/driver" className={navLinkClass}>{tr(ar,'Driver','السائق')}</NavLink>}
           </div>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ms-auto flex items-center gap-2">
             {/* Cart with item count */}
             <Link
               to="/cart"
-              aria-label={`Cart, ${count} items`}
+              aria-label={tr(ar,`Cart, ${count} items`,`السلة، ${count} عناصر`)}
               className="relative rounded-md p-2 text-primary hover:bg-primary-50"
             >
               <svg
@@ -127,19 +131,14 @@ export function AppLayout() {
                   {user.role}
                 </Badge>
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
-                  Logout
+                  {tr(ar,'Logout','خروج')}
                 </Button>
               </div>
             ) : (
               <div className="hidden items-center gap-2 md:flex">
-                <Link to="/login">
-                  <Button variant="outline" size="sm">
-                    Login
-                  </Button>
-                </Link>
-                <Link to="/register">
-                  <Button size="sm">Register</Button>
-                </Link>
+                <ButtonLink to="/login" variant="outline" size="sm">{tr(ar,'Login','دخول')}
+                  </ButtonLink>
+                <ButtonLink to="/register" size="sm">{tr(ar,'Register','تسجيل')}</ButtonLink>
               </div>
             )}
           </div>
@@ -147,21 +146,21 @@ export function AppLayout() {
 
         {/* Mobile panel (<768px) */}
         {mobileOpen && (
-          <div className="border-t border-primary-100 bg-white px-4 pb-4 pt-2 md:hidden">
+          <div id="mobile-navigation" className="border-t border-primary-100 bg-white px-4 pb-4 pt-2 md:hidden">
             <div className="flex flex-col gap-1">
               <NavLink to="/" end className={navLinkClass} onClick={() => setMobileOpen(false)}>
-                Home
+                {tr(ar,'Home','الرئيسية')}
               </NavLink>
               <NavLink to="/menu" className={navLinkClass} onClick={() => setMobileOpen(false)}>
-                Menu
+                {tr(ar,'Menu','القائمة')}
               </NavLink>
               <NavLink to="/orders" className={navLinkClass} onClick={() => setMobileOpen(false)}>
-                My Orders
+                {tr(ar,'My Orders','طلباتي')}
               </NavLink>
-              {access.kitchen && <NavLink to="/kitchen" className={navLinkClass} onClick={() => setMobileOpen(false)}>Kitchen</NavLink>}
-              {access.dashboard && <NavLink to="/admin" className={navLinkClass} onClick={() => setMobileOpen(false)}>Dashboard</NavLink>}
-              {access.tables && <NavLink to="/tables" className={navLinkClass} onClick={() => setMobileOpen(false)}>Tables</NavLink>}
-              {access.driver && <NavLink to="/driver" className={navLinkClass} onClick={() => setMobileOpen(false)}>Driver</NavLink>}
+              {access.kitchen && <NavLink to="/kitchen" className={navLinkClass} onClick={() => setMobileOpen(false)}>{tr(ar,'Kitchen','المطبخ')}</NavLink>}
+              {access.dashboard && <NavLink to="/admin" className={navLinkClass} onClick={() => setMobileOpen(false)}>{tr(ar,'Dashboard','لوحة الإدارة')}</NavLink>}
+              {access.tables && <NavLink to="/tables" className={navLinkClass} onClick={() => setMobileOpen(false)}>{tr(ar,'Tables','الطاولات')}</NavLink>}
+              {access.driver && <NavLink to="/driver" className={navLinkClass} onClick={() => setMobileOpen(false)}>{tr(ar,'Driver','السائق')}</NavLink>}
             </div>
             <div className="mt-3 border-t border-gray-100 pt-3">
               {user ? (
@@ -175,16 +174,10 @@ export function AppLayout() {
                 </div>
               ) : (
                 <div className="flex gap-2">
-                  <Link to="/login" className="flex-1" onClick={() => setMobileOpen(false)}>
-                    <Button variant="outline" size="sm" fullWidth>
-                      Login
-                    </Button>
-                  </Link>
-                  <Link to="/register" className="flex-1" onClick={() => setMobileOpen(false)}>
-                    <Button size="sm" fullWidth>
-                      Register
-                    </Button>
-                  </Link>
+                  <ButtonLink to="/login" onClick={() => setMobileOpen(false)} variant="outline" size="sm" fullWidth className={["flex-1"].filter(Boolean).join(' ')}>{tr(ar,'Login','دخول')}
+                    </ButtonLink>
+                  <ButtonLink to="/register" onClick={() => setMobileOpen(false)} size="sm" fullWidth className={["flex-1"].filter(Boolean).join(' ')}>{tr(ar,'Register','تسجيل')}
+                    </ButtonLink>
                 </div>
               )}
             </div>
@@ -193,7 +186,7 @@ export function AppLayout() {
       </header>
 
       {/* ------------------------------ Content ----------------------------- */}
-      <main className="flex-1">
+      <main id="main-content" tabIndex={-1} className="flex-1">
         <Outlet />
       </main>
 

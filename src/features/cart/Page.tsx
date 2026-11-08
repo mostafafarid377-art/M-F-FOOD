@@ -1,7 +1,7 @@
 import { imageUrl } from "../../lib/assets";
 import React from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button, Card } from "../../components/ui";
+import { ButtonLink, Button, Card } from "../../components/ui";
 import { formatEGP } from "../../lib/format";
 import { useCart, useLayout } from "../../app/providers";
 
@@ -27,9 +27,7 @@ export default function CartPage() {
         <p className="mt-2 text-gray-500">
           Browse the menu and add something delicious.
         </p>
-        <Link to="/menu" className="mt-6">
-          <Button size="lg">Browse Menu</Button>
-        </Link>
+        <ButtonLink to="/menu" size="lg" className={["mt-6"].filter(Boolean).join(' ')}>Browse Menu</ButtonLink>
       </div>
     );
   }

@@ -1,7 +1,7 @@
 import { imageUrl } from "../../lib/assets";
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, Card } from "../../components/ui";
+import { ButtonLink, Button, Card } from "../../components/ui";
 import { useLayout } from "../../app/providers";
 import { SAMPLE_CATEGORIES } from "../menu/data";
 import { supabase } from "../../lib/supabase";
@@ -36,20 +36,10 @@ export default function HomePage() {
               order and delivered hot to your door.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link to="/menu">
-                <Button size="lg" className="bg-white !text-primary hover:bg-primary-50">
-                  Browse the Menu
-                </Button>
-              </Link>
-              <Link to="/cart">
-                <Button
-                  size="lg"
-                  variant="outline"
-                  className="!border-white !text-white hover:!bg-white/10"
-                >
-                  View Cart
-                </Button>
-              </Link>
+              <ButtonLink to="/menu" size="lg" className={["bg-white !text-primary hover:bg-primary-50"].filter(Boolean).join(' ')}>Browse the Menu
+                </ButtonLink>
+              <ButtonLink to="/cart" size="lg" variant="outline" className={["!border-white !text-white hover:!bg-white/10"].filter(Boolean).join(' ')}>View Cart
+                </ButtonLink>
             </div>
             <p className="mt-6 text-sm text-primary-100">
               Delivery fee {currencySymbol}
@@ -78,7 +68,7 @@ export default function HomePage() {
             <Link key={category.id} to={`/menu?cat=${category.id}`}>
               <Card hoverable className="flex h-full flex-col items-center justify-center py-6 text-center">
                 <span className="font-semibold text-gray-800">{category.name}</span>
-                <span className="mt-1 text-xs text-gray-400">{category.description}</span>
+                <span className="mt-1 text-xs text-gray-600">{category.description}</span>
               </Card>
             </Link>
           ))}

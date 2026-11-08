@@ -15,7 +15,11 @@ export function nextStatus(status: OrderStatus): OrderStatus | null {
 /** Subscribe first, then reload on each event/reconnect. Full replacement by ID,
  * request sequencing and periodic reconciliation prevent duplicates and repair
  * missed events (including updates that cease to satisfy RLS). */
-export function useLiveOrders(kitchen: boolean) {
+export type OrderFilters = {search:string;status:string;date:string};
+export function useLiveOrders(kitchen: boolean, filters: OrderFilters = {search:'',status:'',date:''}) {
+  const [page, setPage] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const {search,status,date}=filters;
   const [orders, setOrders] = useState<ManagedOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -26,27 +30,33 @@ export function useLiveOrders(kitchen: boolean) {
     if (!supabase) return;
     const request = ++generation.current;
     try {
-      const all: ManagedOrder[] = [];
-      const pageSize = 500;
-      for (let start = 0; ; start += pageSize) {
-        let query = supabase.from('orders').select(kitchen
-          ? '*,order_items(id,quantity,price_at_order,menu_items(name))'
-          : '*,profiles(full_name,phone),order_items(id,quantity,price_at_order,menu_items(name))')
-          .order('created_at', { ascending: false }).order('id', { ascending: false }).range(start, start + pageSize - 1);
-        if (kitchen) query = query.in('status', ACTIVE);
-        const { data, error: dbError } = await query;
-        if (dbError) throw dbError;
-        all.push(...(data as unknown as ManagedOrder[]));
-        if ((data?.length ?? 0) < pageSize) break;
+      const pageSize = 50;
+      let data: unknown[] | null; let dbError: {message:string} | null;
+      if (kitchen) {
+        const result = await supabase.from('orders').select('*,order_items(id,quantity,price_at_order,menu_items(name))')
+          .in('status',ACTIVE).order('created_at',{ascending:false}).order('id',{ascending:false})
+          .range(page*pageSize,page*pageSize+pageSize);
+        data=result.data;dbError=result.error;
+      } else {
+        const start=date ? new Date(`${date}T00:00:00`) : null;
+        const end=start ? new Date(start.getFullYear(),start.getMonth(),start.getDate()+1) : null;
+        const result = await supabase.rpc('management_orders_page',{
+          p_search:search.trim().slice(0,36),p_status:status,p_from:start?.toISOString() ?? null,
+          p_to:end?.toISOString() ?? null,p_offset:page*pageSize,p_limit:pageSize+1
+        }).select('*,profiles(full_name,phone),order_items(id,quantity,price_at_order,menu_items(name))').order('created_at',{ascending:false}).order('id',{ascending:false});
+        data=result.data;dbError=result.error;
       }
+      if (dbError) throw dbError;
+      const all=(data ?? []) as ManagedOrder[];
       if (alive.current && request === generation.current) {
-        setOrders(Array.from(new Map(all.map(order => [order.id, order])).values()));
+        setHasNext(all.length > pageSize);
+        setOrders(Array.from(new Map(all.slice(0,pageSize).map(order => [order.id, order])).values()));
         setError(''); setLoading(false);
       }
     } catch (e) {
       if (alive.current && request === generation.current) { setError(e instanceof Error ? e.message : String((e as {message?: string}).message ?? e)); setLoading(false); }
     }
-  }, [kitchen]);
+  }, [kitchen, page, search, status, date]);
   useEffect(() => {
     if (!supabase) return;
     alive.current = true;
@@ -83,7 +93,7 @@ export function useLiveOrders(kitchen: boolean) {
     window.addEventListener('online', online);
     return () => { disposed = true; channelGeneration++; alive.current = false; generation.current++; clearTimeout(retry); clearTimeout(debounce); clearInterval(poll); window.removeEventListener('online', online); if (channel) void client.removeChannel(channel); };
   }, [refresh, kitchen]);
-  return { orders, loading, error, connection, refresh };
+  return { orders, loading, error, connection, refresh, page, setPage, hasNext };
 }
 
 export async function changeStatus(order: ManagedOrder, next: OrderStatus) {

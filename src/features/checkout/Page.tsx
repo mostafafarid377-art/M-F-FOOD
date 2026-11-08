@@ -3,7 +3,8 @@ import { tr, useArabic } from "../phase5/Shell";
 import type { DeliveryPoint } from "./DeliveryMap";
 const DeliveryMap = React.lazy(() => import("./DeliveryMap"));
 import { Link, useNavigate } from "react-router-dom";
-import { Badge, Button, Card } from "../../components/ui";
+import { ButtonLink, Badge, Button, Card } from "../../components/ui";
+import { PAYMOB_PAUSED } from "../payments/policy";
 import { formatEGP } from "../../lib/format";
 import { supabase } from "../../lib/supabase";
 import { useAuth, useCart, useLayout } from "../../app/providers";
@@ -13,6 +14,7 @@ import { deleteAddress, loadSavedAddress, saveAddress, type SavedAddress } from 
 const DEMO_ORDERS_KEY = "mf-food-demo-orders";
 
 export interface DemoOrder {
+  customer_id?: string;
   id: string;
   created_at: string;
   status: "pending";
@@ -64,7 +66,7 @@ function CheckoutContent() {
   const [method, setMethod] = useState<"cash" | "paymob">("cash");
   const [onlineAvailable, setOnlineAvailable] = useState(false);
   const { user, isDemoMode } = useAuth();
-  useEffect(() => { let active = true; if (supabase && !isDemoMode) supabase.from("payment_methods").select("enabled").eq("code", "paymob").maybeSingle().then(({data})=>{if(active) setOnlineAvailable(Boolean(data?.enabled));}); return () => {active = false;}; }, [isDemoMode]);
+  useEffect(() => { let active = true; if (supabase && !isDemoMode && !PAYMOB_PAUSED) supabase.from("payment_methods").select("enabled").eq("code", "paymob").maybeSingle().then(({data})=>{if(active) setOnlineAvailable(Boolean(data?.enabled));}); return () => {active = false;}; }, [isDemoMode]);
   const { items, subtotal, clearCart } = useCart();
   const { currencySymbol, deliveryFee, minimumOrder } = useLayout();
 
@@ -147,14 +149,9 @@ function CheckoutContent() {
           You need an account to place an order — it keeps your order history safe.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Link to="/login" state={{ from: "/checkout" }}>
-            <Button size="lg">Login</Button>
-          </Link>
-          <Link to="/register" state={{ from: "/checkout" }}>
-            <Button size="lg" variant="outline">
-              Register
-            </Button>
-          </Link>
+          <ButtonLink to="/login" state={{ from: "/checkout" }} size="lg">Login</ButtonLink>
+          <ButtonLink to="/register" state={{ from: "/checkout" }} size="lg" variant="outline">Register
+            </ButtonLink>
         </div>
       </div>
     );
@@ -166,9 +163,7 @@ function CheckoutContent() {
         <p className="text-6xl">🛒</p>
         <h1 className="mt-4 text-2xl font-bold text-primary">Your cart is empty</h1>
         <p className="mt-2 text-gray-500">Add dishes from the menu before checking out.</p>
-        <Link to="/menu" className="mt-6 inline-block">
-          <Button size="lg">Browse Menu</Button>
-        </Link>
+        <ButtonLink to="/menu" size="lg" className={["mt-6 inline-block"].filter(Boolean).join(' ')}>Browse Menu</ButtonLink>
       </div>
     );
   }
@@ -196,6 +191,7 @@ function CheckoutContent() {
       }
     }
 
+    if (method === "paymob" && PAYMOB_PAUSED) { setError("Online payments are currently paused. Please choose cash."); return; }
     if (inFlight.current) return;
     inFlight.current = true;
     setPlacing(true);
@@ -231,6 +227,7 @@ function CheckoutContent() {
 
       // ---- demo mode: simulate the same flow locally ----
       const demoOrder: DemoOrder = {
+        customer_id: user?.id,
         id: `demo-${Date.now()}`,
         created_at: new Date().toISOString(),
         status: "pending",
@@ -318,7 +315,7 @@ function CheckoutContent() {
           <Card>
             <fieldset><legend className="mb-3 text-lg font-bold text-gray-900">{tr(ar,'Pay with','الدفع بواسطة')}</legend>
               <label className="flex cursor-pointer items-center justify-between gap-3 border-b border-gray-100 py-3"><span><span aria-hidden="true" className="mr-3">💵</span>{isDelivery ? tr(ar,'Cash on delivery','الدفع نقداً عند الاستلام') : tr(ar,'Cash at restaurant','الدفع نقداً في المطعم')}</span><input type="radio" name="payment-method" checked={method==='cash'} onChange={()=>setMethod('cash')} className="h-5 w-5 accent-primary" /></label>
-              <label className={`flex items-center justify-between gap-3 py-3 ${onlineAvailable ? 'cursor-pointer' : 'text-gray-400'}`}><span><span aria-hidden="true" className="mr-3">💳</span>{tr(ar,'Online payment with Paymob','الدفع الإلكتروني عبر باي موب')}</span><input type="radio" name="payment-method" checked={method==='paymob'} disabled={!onlineAvailable} onChange={()=>setMethod('paymob')} className="h-5 w-5 accent-primary" /></label>
+              <label className={`flex items-center justify-between gap-3 py-3 ${onlineAvailable ? 'cursor-pointer' : 'text-gray-400'}`}><span><span aria-hidden="true" className="mr-3">💳</span>{tr(ar,'Online payment with Paymob','الدفع الإلكتروني عبر باي موب')}</span><input type="radio" name="payment-method" checked={method==='paymob'} disabled={!onlineAvailable} onChange={()=>{if (onlineAvailable && !PAYMOB_PAUSED) setMethod('paymob');}} className="h-5 w-5 accent-primary" /></label>
               {!onlineAvailable && <p className="text-xs text-gray-500">{tr(ar,'Online payment is not available yet.','الدفع الإلكتروني غير متاح حالياً.')}</p>}
               {onlineAvailable && <p className="text-xs text-gray-500">{tr(ar,'You will continue to Paymob’s secure checkout.','ستنتقل إلى صفحة الدفع الآمنة من باي موب.')}</p>}
             </fieldset>

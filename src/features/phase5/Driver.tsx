@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth, useLayout } from '../../app/providers';
 import { formatEGP } from '../../lib/format';
@@ -10,13 +10,14 @@ import { useRealtimeRefresh } from './live';
 type Delivery={order_id:string;status:string;order_status:string;address:string;notes:string|null;assigned_at:string;latitude:number|null;longitude:number|null;total_price:number;items:{name:string;quantity:number}[]};
 type Watch={id:number;orderId:string;lastAt:number;lat:number|null;lng:number|null;sending:boolean};
 function distance(a:number,b:number,c:number,d:number){const r=Math.PI/180;const x=(d-b)*r*Math.cos((a+c)*r/2);const y=(c-a)*r;return Math.sqrt(x*x+y*y)*6371000;}
-export default function Driver(){
+export default function Driver(){ const {user}=useAuth();return <DriverSession key={user?.id ?? "signed-out"}/>; }
+function DriverSession(){
  const {user,isLoading,isDemoMode}=useAuth();const {currencySymbol}=useLayout();const ar=useArabic();const [deliveries,setDeliveries]=useState<Delivery[]>([]);const [phones,setPhones]=useState<Record<string,string>>({});const [authorized,setAuthorized]=useState<boolean|null>(null);const [error,setError]=useState('');const [busy,setBusy]=useState('');const [gps,setGps]=useState('');const [sharing,setSharing]=useState('');const watch=useRef<Watch|null>(null);const generation=useRef(0);
  const stop=useCallback(()=>{if(watch.current){navigator.geolocation?.clearWatch(watch.current.id);watch.current=null;}setSharing('');setGps(tr(ar,'Location sharing stopped.','تم إيقاف مشاركة الموقع.'));},[ar]);
  const load=useCallback(async()=>{if(!supabase||!user||isDemoMode)return;const request=++generation.current;const [a,d]=await Promise.all([supabase.from('delivery_drivers').select('id,is_active').eq('profile_id',user.id).maybeSingle(),supabase.rpc('driver_deliveries')]);if(request!==generation.current)return;if(a.error||d.error){setError(a.error?.message||d.error?.message||'Unable to load');return;}const rows=(d.data||[]) as Delivery[];let contacts:Record<string,string>={};if(rows.length){const details=await supabase.from('delivery_details').select('order_id,phone').in('order_id',rows.map(row=>row.order_id));if(request!==generation.current)return;if(details.error){setError(details.error.message);return;}contacts=Object.fromEntries((details.data||[]).map(row=>[row.order_id,row.phone]));}setPhones(contacts);setAuthorized(Boolean(a.data?.is_active));setDeliveries(rows);setError('');},[user?.id,isDemoMode]);
  const connection=useRealtimeRefresh(['delivery_jobs','orders'],()=>void load(),Boolean(user&&supabase&&!isDemoMode));
  useEffect(()=>{if(watch.current&&!deliveries.some(d=>d.order_id===watch.current?.orderId&&d.status==='on_the_way'))stop();},[deliveries,stop]);
- useEffect(()=>()=>{if(watch.current)navigator.geolocation?.clearWatch(watch.current.id);watch.current=null;},[]);
+ useLayoutEffect(()=>()=>{generation.current++;if(watch.current)navigator.geolocation?.clearWatch(watch.current.id);watch.current=null;},[]);
  const advance=async(d:Delivery,next:string)=>{if(!supabase)return;setBusy(d.order_id);setError('');const {error:e}=await supabase.rpc('advance_delivery',{p_order_id:d.order_id,p_expected:d.status,p_next:next});if(e)setError(e.message);if(next==='delivered'&&!e)stop();await load();setBusy('');};
  const start=(d:Delivery)=>{
   if(d.status!=='on_the_way')return;

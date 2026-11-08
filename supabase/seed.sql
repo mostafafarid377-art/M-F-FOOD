@@ -1,6 +1,6 @@
 -- ===========================================================================
 -- M-F-FOOD · Seed data
--- Safe to re-run: every statement uses ON CONFLICT DO NOTHING.
+-- For development projects only; do not run on populated or production databases.
 -- Prices are integer piastres (100 piastres = 1 EGP).
 -- The fixed UUIDs match the bundled sample data in src/features/menu/data.ts.
 -- ===========================================================================
@@ -66,42 +66,8 @@ insert into public.table_sessions (id, table_number, status) values
   ('00000000-0000-4000-8000-300000000006', 6, 'checked_out')
 on conflict (id) do nothing;
 
--- ------------------------------ Staff members -------------------------------
--- staff_members.profile_id must reference a real auth user. This block
--- promotes existing registered users (if any) so the seed never violates
--- the FK: sign up through the app first, then re-run the seed (or assign
--- staff roles from the Supabase dashboard).
-do $$
-declare
-  v_manager uuid;
-  v_chef    uuid;
-  v_server  uuid;
-begin
-  select id into v_manager from public.profiles order by created_at asc limit 1 offset 0;
-  select id into v_chef    from public.profiles order by created_at asc limit 1 offset 1;
-  select id into v_server  from public.profiles order by created_at asc limit 1 offset 2;
-
-  if v_manager is not null then
-    update public.profiles set role = 'admin' where id = v_manager;
-    insert into public.staff_members (profile_id, role, is_active)
-    values (v_manager, 'manager', true)
-    on conflict (profile_id) do nothing;
-  end if;
-
-  if v_chef is not null then
-    update public.profiles set role = 'staff' where id = v_chef;
-    insert into public.staff_members (profile_id, role, is_active)
-    values (v_chef, 'chef', true)
-    on conflict (profile_id) do nothing;
-  end if;
-
-  if v_server is not null then
-    update public.profiles set role = 'staff' where id = v_server;
-    insert into public.staff_members (profile_id, role, is_active)
-    values (v_server, 'server', true)
-    on conflict (profile_id) do nothing;
-  end if;
-end $$;
+-- No account is promoted by the seed. Configure authorized staff explicitly
+-- in a development project after verifying the correct account identifiers.
 
 -- ------------------------------ Audit log sample ----------------------------
 insert into public.audit_logs (id, user_id, action, entity_type, entity_id, new_value) values

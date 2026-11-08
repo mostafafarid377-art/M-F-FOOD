@@ -12,7 +12,7 @@ import ForgotPasswordPage from "../features/auth/ForgotPasswordPage";
 import RecoveryCallback from "../features/auth/RecoveryCallback";
 import { isRecoveryCallback } from "../lib/supabase";
 import RegisterPage from "../features/auth/RegisterPage";
-import { Button } from "../components/ui";
+import { ButtonLink, Button } from "../components/ui";
 import { ManagementGate } from "../features/management/access";
 import { FloorGate, Phase5Shell } from "../features/phase5/Shell";
 const PaymentPage = React.lazy(() => import("../features/payments/Page"));
@@ -29,9 +29,7 @@ function NotFoundPage() {
       <p className="text-6xl">🍽️</p>
       <h1 className="text-2xl font-bold text-primary">Page not found</h1>
       <p className="text-gray-600">The page you are looking for doesn't exist.</p>
-      <Link to="/">
-        <Button>Back to home</Button>
-      </Link>
+      <ButtonLink to="/">Back to home</ButtonLink>
     </div>
   );
 }
@@ -42,20 +40,20 @@ const createRouter = import.meta.env.BASE_URL === "/" ? createBrowserRouter : cr
 export const router = isRecoveryCallback ? null : createRouter([
   {
     path: "/",
-    element: <AppLayout />,
+    element: <Phase5Shell><AppLayout /></Phase5Shell>,
     children: [
       { index: true, element: <HomePage /> },
       { path: "menu", element: <MenuPage /> },
       { path: "cart", element: <CartPage /> },
-      { path: "checkout", element: <Phase5Shell><CheckoutPage /></Phase5Shell> },
-      { path: "payment/:orderId", element: <Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><PaymentPage /></React.Suspense></Phase5Shell> },
-      { path: "orders", element: <Phase5Shell><OrdersPage /></Phase5Shell> },
+      { path: "checkout", element: <CheckoutPage /> },
+      { path: "payment/:orderId", element: <React.Suspense fallback={<p className="p-8">Loading…</p>}><PaymentPage /></React.Suspense> },
+      { path: "orders", element: <OrdersPage /> },
       { path: "admin", element: <ManagementGate><React.Suspense fallback={<p className="p-8">Loading dashboard…</p>}><Dashboard /></React.Suspense></ManagementGate> },
       { path: "kitchen", element: <ManagementGate kitchen><React.Suspense fallback={<p className="p-8">Loading kitchen…</p>}><Kitchen /></React.Suspense></ManagementGate> },
-      { path: "tables", element: <FloorGate><Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><Tables /></React.Suspense></Phase5Shell></FloorGate> },
-      { path: "delivery-admin", element: <ManagementGate><Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><DeliveryAdmin /></React.Suspense></Phase5Shell></ManagementGate> },
-      { path: "driver", element: <Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><Driver /></React.Suspense></Phase5Shell> },
-      { path: "track/:orderId", element: <Phase5Shell><React.Suspense fallback={<p className="p-8">Loading…</p>}><Tracking /></React.Suspense></Phase5Shell> },
+      { path: "tables", element: <FloorGate><React.Suspense fallback={<p className="p-8">Loading…</p>}><Tables /></React.Suspense></FloorGate> },
+      { path: "delivery-admin", element: <ManagementGate><React.Suspense fallback={<p className="p-8">Loading…</p>}><DeliveryAdmin /></React.Suspense></ManagementGate> },
+      { path: "driver", element: <React.Suspense fallback={<p className="p-8">Loading…</p>}><Driver /></React.Suspense> },
+      { path: "track/:orderId", element: <React.Suspense fallback={<p className="p-8">Loading…</p>}><Tracking /></React.Suspense> },
       { path: "login", element: <LoginPage /> },
       { path: "forgot-password", element: <ForgotPasswordPage /> },
       { path: "register", element: <RegisterPage /> },

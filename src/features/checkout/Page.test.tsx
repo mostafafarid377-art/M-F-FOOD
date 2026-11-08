@@ -80,14 +80,14 @@ it('continues checkout when saved address storage fails', async () => {
  fireEvent.click(screen.getByText('Dine-in'));fireEvent.change(screen.getByLabelText('Table number'),{target:{value:'7'}});fireEvent.click(screen.getByRole('button',{name:/Place Order/}));
  await waitFor(()=>expect(m.rpc).toHaveBeenCalledWith('create_checkout_order',expect.objectContaining({p_method:'cash',p_table_number:7})));
 });
-it('only offers enabled Paymob and preserves the hosted payment flow', async () => {
+it('keeps Paymob disabled even if the database flag is enabled, and still permits cash', async () => {
  m.online=true;m.load.mockResolvedValue(saved);
  render(<MemoryRouter><CheckoutPage/></MemoryRouter>);await screen.findByText('Saved map');
  const online=screen.getByRole('radio',{name:'Online payment with Paymob'}) as HTMLInputElement;
- await waitFor(()=>expect(online.disabled).toBe(false));fireEvent.click(online);
+ expect(online.disabled).toBe(true);
  fireEvent.click(screen.getByRole('button',{name:/Place Order/}));
- await waitFor(()=>expect(m.rpc).toHaveBeenCalledWith('create_checkout_order',expect.objectContaining({p_method:'paymob'})));
- expect(m.navigate).toHaveBeenCalledWith('/payment/order-id',expect.anything());
+ await waitFor(()=>expect(m.rpc).toHaveBeenCalledWith('create_checkout_order',expect.objectContaining({p_method:'cash'})));
+ expect(m.navigate).not.toHaveBeenCalledWith('/payment/order-id',expect.anything());
 });
 it('blocks instructions exceeding the server limit including presets', async () => {
  m.load.mockResolvedValue(saved);

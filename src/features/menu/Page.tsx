@@ -1,5 +1,5 @@
 import { imageUrl } from "../../lib/assets";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Badge, Button, Card } from "../../components/ui";
 import { formatEGP } from "../../lib/format";
@@ -46,6 +46,22 @@ export default function MenuPage() {
   const query = searchParams.get("q") ?? "";
   const [searchInput, setSearchInput] = useState(query);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const drawer=useRef<HTMLElement|null>(null);
+  useEffect(()=>{
+    if(!sidebarOpen)return;
+    const previous=document.activeElement as HTMLElement | null;
+    const focusable=()=>Array.from(drawer.current?.querySelectorAll<HTMLElement>('button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? []);
+    focusable()[0]?.focus();
+    const onKey=(event:KeyboardEvent)=>{
+      if(event.key==='Escape'){event.preventDefault();setSidebarOpen(false);return;}
+      if(event.key!=='Tab')return;
+      const elements=focusable();if(!elements.length){event.preventDefault();return;}
+      const first=elements[0],last=elements[elements.length-1];
+      if(event.shiftKey&&(document.activeElement===first||!drawer.current?.contains(document.activeElement))){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&(document.activeElement===last||!drawer.current?.contains(document.activeElement))){event.preventDefault();first.focus();}
+    };
+    document.addEventListener('keydown',onKey);return()=>{document.removeEventListener('keydown',onKey);previous?.focus();};
+  },[sidebarOpen]);
   const [justAdded, setJustAdded] = useState<string | null>(null);
 
   /* ------------------------- Load from Supabase ------------------------- */
@@ -146,7 +162,7 @@ export default function MenuPage() {
         type="button"
         onClick={() => selectCategory(ALL_CATEGORIES)}
         className={[
-          "rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-colors",
+          "rounded-lg px-4 py-2.5 text-start text-sm font-medium transition-colors",
           activeCategory === ALL_CATEGORIES
             ? "bg-primary text-white shadow"
             : "text-gray-700 hover:bg-primary-50 hover:text-primary",
@@ -160,7 +176,7 @@ export default function MenuPage() {
           type="button"
           onClick={() => selectCategory(category.id)}
           className={[
-            "rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-colors",
+            "rounded-lg px-4 py-2.5 text-start text-sm font-medium transition-colors",
             activeCategory === category.id
               ? "bg-primary text-white shadow"
               : "text-gray-700 hover:bg-primary-50 hover:text-primary",
@@ -171,7 +187,7 @@ export default function MenuPage() {
             <span
               className={[
                 "block text-xs font-normal",
-                activeCategory === category.id ? "text-white/80" : "text-gray-400",
+                activeCategory === category.id ? "text-white/80" : "text-gray-600",
               ].join(" ")}
             >
               {category.description}
@@ -186,7 +202,7 @@ export default function MenuPage() {
     <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6">
       {/* Desktop sidebar (≥768px) */}
       <aside className="sticky top-20 hidden h-fit w-64 shrink-0 rounded-xl border border-primary-100 bg-white p-3 shadow-sm md:block">
-        <h2 className="mb-2 px-2 text-xs font-bold uppercase tracking-wider text-gray-400">
+        <h2 className="mb-2 px-2 text-xs font-bold uppercase tracking-wider text-gray-600">
           Categories
         </h2>
         {categoryList}
@@ -200,9 +216,9 @@ export default function MenuPage() {
             onClick={() => setSidebarOpen(false)}
             aria-hidden
           />
-          <aside className="absolute left-0 top-0 h-full w-72 overflow-y-auto bg-white p-4 shadow-xl">
+          <aside ref={drawer} role="dialog" aria-modal="true" aria-label="Menu categories" className="absolute start-0 top-0 h-full w-72 overflow-y-auto bg-white p-4 shadow-xl">
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-400">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-gray-600">
                 Categories
               </h2>
               <button
@@ -227,6 +243,7 @@ export default function MenuPage() {
           {/* Mobile filter toggle */}
           <Button
             variant="outline"
+            aria-expanded={sidebarOpen}
             className="md:hidden"
             onClick={() => setSidebarOpen(true)}
           >
@@ -239,7 +256,7 @@ export default function MenuPage() {
           {/* Search bar */}
           <div className="relative flex-1">
             <svg
-              className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400"
+              className="pointer-events-none absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-600"
               fill="none"
               stroke="currentColor"
               strokeWidth={2}
@@ -253,7 +270,7 @@ export default function MenuPage() {
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search the menu… (e.g. burger, juice)"
               aria-label="Search the menu"
-              className="w-full rounded-md border border-primary-200 bg-white py-2 pl-10 pr-4 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full rounded-md border border-primary-200 bg-white py-2 ps-10 pe-4 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
         </div>

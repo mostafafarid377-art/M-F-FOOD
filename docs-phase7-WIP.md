@@ -1,0 +1,31 @@
+# Phase 7 working notes — NOT a release approval
+
+## Status and boundaries
+The additive migration and code are un-deployed. Do not apply migrations, change live data, enable Paymob, deploy, or perform transactions without explicit approval. CI uses synthetic public config and does not validate live deployment variables. The existing Pages deployment workflow has deliberately not been changed; before any approved release, independently validate the actual Pages configuration without printing its values. An absent or invalid public Supabase URL/key causes a production service-unavailable screen, not demo ordering. Browser configuration must contain only an anon JWT or publishable key, never service-role, secret, or Paymob credentials.
+
+`npm run validate:production-env` checks format only; it does not establish project identity, connection, permissions, or secret safety. Test its output using controlled values. Confirm actual project/keys via secure administration, and never paste credentials in issues, logs or chat. Review repository history and build artifacts for leaks; rotate credentials only under a separately approved incident plan.
+
+## Paymob and cash
+The new migration blocks new Paymob payment inserts and claims; the intention endpoint and UI also pause new starts. The existing webhook/finish functions remain for reconciliation of previously claimed sessions. Inspect pending/processing records and Paymob dashboard in a controlled environment; preserve provider references, compare signed order ID, amount, currency, status and event id. Do not retry or fulfill uncertain unpaid online orders. Escalate ambiguous, duplicate, refund/void or mismatch cases to an authorized operator. Never record card details. Any unpause requires a separate reviewed change, sandbox and provider verification and explicit approval.
+
+Cash continues through the checkout RPC; the migration creates pending cash payment rows for newly created legacy orders at transaction end. No backfill of historical orders is attempted. Test legacy integrations, rollback and operational reporting in a restored staging copy before considering release. The migration changes staff table-session policies to require an active employee or admin; verify actual role assignments in staging. Never run the seed on production or populated databases. It no longer chooses profiles or promotes accounts.
+
+## Staging and operations checklist
+- Restore a verified backup to an isolated staging Supabase project; verify restore, migration ordering and grants/RLS against actual PostgreSQL and Supabase. Record rollback owner, recovery point, backups and restoration times. Do not edit applied migration files.
+- Exercise customer isolation, staff activation and demotion, admin restrictions, legacy and current cash checkout/idempotency, price tampering, quantity/address limits, old clients, and unpaid online fulfillment denial. Test existing pending and processing payment reconciliation without real money using approved sandbox credentials only.
+- Verify JWT/public project configuration, auth sign-in/sign-out/account switch, password recovery email, Realtime authorization and reconnect, GPS permission/revocation/logout and retention on physical devices. Test both Pages base path and root deployments in an isolated environment.
+- Validate keyboard/screen reader, contrast, mobile layout, Arabic/English text and RTL across all flows; test assistive technologies with users. Some pages remain untranslated.
+- Establish incident contacts and escalation, access controls, log redaction, notification, monitoring, payment reconciliation ownership, least-privilege secret storage, credential rotation, backup schedule and recurring restore drills. Do not log tokens, private details or webhook bodies. Preserve evidence during incidents; restrict access and communicate through approved channels.
+
+## Remaining engineering work
+The full Phase 7 rebuild is not finished. In particular pagination and aggregate RPCs require further staging verification, including realtime boundary changes and legacy callers; accessibility and translation coverage need completion; customer history account-switch/realtime and checkout/address lifecycle need additional tests; broader migration/RLS adversarial tests and live staging verification are required. CI has not been observed running on GitHub. This note is not a production-readiness claim.
+
+The detailed proposed operational and release runbook is `docs/operations-phase7.md`.
+
+## Review limitations found in the continuation
+- Several major screens, labels and error messages remain English-only; automated direction/focus tests are not a substitute for full keyboard, contrast, screen-reader, browser and physical-device review.
+- Offset pages can shift under concurrent inserts/status updates. Kitchen staff must check all active-order pages; active table/session data and the active-driver workload are still collected in multiple batches, and driver management uses the server's default result cap. Large-dataset and query-plan/load testing are outstanding.
+- The management RPCs and their PostgREST relationship embedding, RLS/grants, 64 KiB webhook body cap, deferred legacy-payment trigger and constraint timing require real isolated Supabase staging tests. Legacy order RPCs do not provide cross-request idempotency. The Paymob pause only affects deployed infrastructure after separately approved rollout.
+- Previously stored demo orders with no owner are preserved but intentionally not shown to a signed-in demo account. Legacy plaintext demo credentials migrate only when development-mode browser storage and Web Crypto are available; demo accounts are not a substitute for secure authentication. Cross-tab demo migration/concurrency and cart ownership across account switches need further review.
+- A previously started location request may already be in flight when a driver signs out. No automatic stale-location expiry is implemented. Refunds/voids, uncertain provider outcomes, reconciliation, backups and actual provider behavior remain operational/staging responsibilities.
+- The PR workflow is only YAML/static-tested locally. The existing remote draft PR does not include the local continuation and its checks cannot validate it until an approved push.
