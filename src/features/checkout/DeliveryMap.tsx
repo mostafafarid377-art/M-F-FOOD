@@ -15,7 +15,7 @@ function Recenter({ point }: { point: DeliveryPoint | null }) {
   useEffect(() => { if (point) map.setView([point.lat, point.lng], Math.max(map.getZoom(), 15)); }, [map, point]);
   return null;
 }
-export default function DeliveryMap({value, onChange}: {value: DeliveryPoint | null; onChange: (point: DeliveryPoint) => void}) {
+export default function DeliveryMap({value, onChange, readOnly = false}: {value: DeliveryPoint | null; onChange: (point: DeliveryPoint) => void; readOnly?: boolean}) {
   const centre = value ?? DEFAULT_VIEW;
   const [message, setMessage] = useState('');
   const [latitude, setLatitude] = useState('');
@@ -28,8 +28,12 @@ export default function DeliveryMap({value, onChange}: {value: DeliveryPoint | n
       setMessage('Location selected. You can adjust the pin on the map.');
     }, () => setMessage('Location permission was denied or unavailable. Tap the map to choose your location.'), {enableHighAccuracy: true, timeout: 20000});
   };
+  if (readOnly && value) return <MapContainer center={[value.lat, value.lng]} zoom={15} className="z-0 h-48 w-full rounded-xl border" dragging={false} scrollWheelZoom={false} doubleClickZoom={false} touchZoom={false} zoomControl={false} keyboard={false}>
+    <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+    <Recenter point={value} /><CircleMarker center={[value.lat, value.lng]} radius={10} pathOptions={{color:'#ea580c'}} />
+  </MapContainer>;
   return <div>
-    <h3 className="font-bold">1. Pin your delivery location</h3>
+    <h3 className="font-bold">Pin your delivery location</h3>
     <p className="mb-2 text-sm text-gray-600">Tap the map to place your pin, or use your current location. The map opens near Cairo until you choose a location.</p>
     <MapContainer center={[centre.lat, centre.lng]} zoom={12} className="z-0 h-72 w-full rounded-xl border" scrollWheelZoom>
       <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />

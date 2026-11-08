@@ -16,3 +16,9 @@ it('keeps manual selection available when geolocation is denied',()=>{
 it('can select coordinates when map tiles cannot load',()=>{
  render(<Wrapper/>);fireEvent.change(screen.getByLabelText('Latitude'),{target:{value:'30.1'}});fireEvent.change(screen.getByLabelText('Longitude'),{target:{value:'31.2'}});fireEvent.click(screen.getByText('Set coordinates'));expect(screen.getByText('Selected: 30.10000, 31.20000')).toBeTruthy();
 });
+
+it('shows a non-interactive saved-location preview',()=>{
+ m.click=null;const onChange=vi.fn();render(<DeliveryMap value={{lat:30,lng:31}} onChange={onChange} readOnly />);
+ expect(m.click).toBeNull();expect(screen.queryByText('Use my current location')).toBeNull();
+ expect(onChange).not.toHaveBeenCalled();expect(m.setView).toHaveBeenCalled();
+});
