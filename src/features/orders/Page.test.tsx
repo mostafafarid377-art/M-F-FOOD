@@ -5,7 +5,7 @@ import {act,cleanup,render,screen,waitFor} from '@testing-library/react';
 import {MemoryRouter} from 'react-router-dom';
 const m=vi.hoisted(()=>({id:'a',requests:[] as any[],channels:[] as any[]}));
 vi.mock('../../app/providers',()=>({useAuth:()=>({user:{id:m.id},isDemoMode:false}),useLayout:()=>({currencySymbol:'£'})}));
-vi.mock('../../lib/supabase',()=>({supabase:{from:()=>{const q:any={select:()=>q,eq:(_k:string,id:string)=>{q.id=id;return q;},order:()=>new Promise(resolve=>m.requests.push({id:q.id,resolve}))};return q;},channel:()=>{const c:any={on:(_a:any,filter:any,cb:any)=>{c.filter=filter;c.event=cb;return c;},subscribe:(cb:any)=>{c.status=cb;return c;}};m.channels.push(c);return c;},removeChannel:vi.fn()}}));
+vi.mock('../../lib/supabase',()=>({supabase:{from:()=>{const q:any={select:()=>q,eq:(_k:string,id:string)=>{q.id=id;return q;},order:()=>q,range:()=>new Promise(resolve=>m.requests.push({id:q.id,resolve}))};return q;},channel:()=>{const c:any={on:(_a:any,filter:any,cb:any)=>{c.filter=filter;c.event=cb;return c;},subscribe:(cb:any)=>{c.status=cb;return c;}};m.channels.push(c);return c;},removeChannel:vi.fn()}}));
 import Page from './Page';
 const row=(id:string)=>({id,created_at:'2024-01-01',status:'pending',total_price:12500,delivery_address:null,notes:null,delivery_details:null,payments:null,table_number:1,order_items:[]});
 afterEach(()=>{cleanup();m.requests=[];m.channels=[];m.id='a';});

@@ -13,6 +13,7 @@ export function statusText(ar: boolean, value: string) {
 }
 export function Phase5Shell({ children }: { children: React.ReactNode }) {
   const [ar, setAr] = useState(() => localStorage.getItem('mf-food-phase5-language') === 'ar');
+  useEffect(() => {const root=document.documentElement;const lang=root.lang,dir=root.dir;root.lang=ar?'ar':'en';root.dir=ar?'rtl':'ltr';return()=>{root.lang=lang;root.dir=dir;};},[ar]);
   const toggle = () => setAr(value => { localStorage.setItem('mf-food-phase5-language', value ? 'en' : 'ar'); return !value; });
   return <Lang.Provider value={ar}><div dir={ar ? 'rtl' : 'ltr'} lang={ar ? 'ar' : 'en'}><div className="mx-auto flex max-w-7xl justify-end px-4 pt-4"><Button variant="outline" size="sm" onClick={toggle}>{ar ? 'English' : 'العربية'}</Button></div>{children}</div></Lang.Provider>;
 }

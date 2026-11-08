@@ -30,3 +30,4 @@ jobs:
         with:
           deno-version: v2.x
       - run: deno check supabase/functions/paymob-create-intention/index.ts supabase/functions/paymob-webhook/index.ts
+      - run: deno test supabase/tests/intention-pause.test.ts

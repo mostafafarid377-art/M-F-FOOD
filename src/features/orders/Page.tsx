@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Badge, Button, Card, statusVariant } from "../../components/ui";
+import { ButtonLink, Badge, Button, Card, statusVariant } from "../../components/ui";
+import { Pagination } from "../../components/Pagination";
 import { formatEGP } from "../../lib/format";
 import { supabase } from "../../lib/supabase";
 import { useAuth, useLayout } from "../../app/providers";
@@ -75,6 +76,7 @@ function OrdersSession() {
   const placedId = (location.state as { placed?: string } | null)?.placed;
 
   const [orders, setOrders] = useState<DisplayOrder[] | null>(null);
+  const [page,setPage]=useState(0);const [hasNext,setHasNext]=useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -84,21 +86,22 @@ function OrdersSession() {
       if (!user) return;
       const current = ++request;
       if (!supabase) {
-        setOrders(loadDemoOrders().filter(order => order.customer_id === user.id).map(fromDemo));
+        const rows=loadDemoOrders().filter(order => order.customer_id === user.id);setHasNext(rows.length>(page+1)*50);setOrders(rows.slice(page*50,(page+1)*50).map(fromDemo));
         return;
       }
       const { data, error: fetchError } = await supabase
         .from("orders")
         .select("*, order_items(*, menu_items(name)), delivery_details(phone), payments(status,provider,payment_method)")
         .eq("customer_id", user.id)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }).order("id", { ascending: false }).range(page*50,page*50+50);
 
       if (cancelled || current !== request) return;
       if (fetchError) {
         setError(fetchError.message);
         setOrders([]);
       } else {
-        setOrders(((data ?? []) as unknown as (OrderWithItems & { delivery_details: {phone:string} | null; payments: {status:string;provider:string|null;payment_method:string|null} | null })[]).map(fromRow));
+        setError(null);setHasNext((data?.length ?? 0)>50);
+        setOrders(((data ?? []).slice(0,50) as unknown as (OrderWithItems & { delivery_details: {phone:string} | null; payments: {status:string;provider:string|null;payment_method:string|null} | null })[]).map(fromRow));
       }
     }
 
@@ -108,23 +111,18 @@ function OrdersSession() {
     const poll=setInterval(()=>void load(),20000);
     const online=()=>void load();window.addEventListener('online',online);
     return () => {cancelled=true;request++;clearInterval(poll);window.removeEventListener('online',online);void supabase?.removeChannel(channel);};
-  }, [user?.id, placedId]);
+  }, [user?.id, placedId,page]);
 
   if (!user) {
     return (
       <div className="mx-auto max-w-md px-4 py-20 text-center">
         <p className="text-6xl">📋</p>
-        <h1 className="mt-4 text-2xl font-bold text-primary">Login required</h1>
-        <p className="mt-2 text-gray-500">Log in to see your order history.</p>
+        <h1 className="mt-4 text-2xl font-bold text-primary">{tr(ar,'Login required','يجب تسجيل الدخول')}</h1>
+        <p className="mt-2 text-gray-500">{tr(ar,'Log in to see your order history.','سجّل الدخول لعرض سجل الطلبات.')}</p>
         <div className="mt-6 flex justify-center gap-3">
-          <Link to="/login" state={{ from: "/orders" }}>
-            <Button size="lg">Login</Button>
-          </Link>
-          <Link to="/register" state={{ from: "/orders" }}>
-            <Button size="lg" variant="outline">
-              Register
-            </Button>
-          </Link>
+          <ButtonLink to="/login" state={{ from: "/orders" }} size="lg">{tr(ar,'Login','دخول')}</ButtonLink>
+          <ButtonLink to="/register" state={{ from: "/orders" }} size="lg" variant="outline">Register
+            </ButtonLink>
         </div>
       </div>
     );
@@ -132,11 +130,11 @@ function OrdersSession() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="mb-6 text-2xl font-extrabold text-primary">My Orders</h1>
+      <h1 className="mb-6 text-2xl font-extrabold text-primary">{tr(ar,'My Orders','طلباتي')}</h1>
 
       {placedId && (
         <Card className="mb-6 border-green-200 bg-green-50">
-          <p className="font-semibold text-green-800">✅ Order placed successfully!</p>
+          <p className="font-semibold text-green-800">{tr(ar,'✅ Order placed successfully!','✅ تم إرسال الطلب بنجاح!')}</p>
           <p className="text-sm text-green-700">
             Reference <span className="font-mono">{placedId.slice(0, 8)}</span> — the
             kitchen will confirm it shortly.
@@ -163,11 +161,9 @@ function OrdersSession() {
       ) : orders.length === 0 ? (
         <Card className="py-12 text-center">
           <p className="text-4xl">🧾</p>
-          <p className="mt-2 font-medium text-gray-700">No orders yet</p>
-          <p className="text-sm text-gray-500">Your placed orders will appear here.</p>
-          <Link to="/menu" className="mt-4 inline-block">
-            <Button>Start an order</Button>
-          </Link>
+          <p className="mt-2 font-medium text-gray-700">{tr(ar,'No orders yet','لا توجد طلبات بعد')}</p>
+          <p className="text-sm text-gray-500">{tr(ar,'Your placed orders will appear here.','ستظهر طلباتك هنا.')}</p>
+          <ButtonLink to="/menu" className={["mt-4 inline-block"].filter(Boolean).join(' ')}>{tr(ar,'Start an order','ابدأ طلباً')}</ButtonLink>
         </Card>
       ) : (
         <div className="space-y-4">
@@ -206,9 +202,9 @@ function OrdersSession() {
               </ul>
 
               {order.payment && <p className="mt-3 text-sm">{tr(ar,'Payment','الدفع')}: {order.payment.payment_method === 'cash' ? tr(ar,'Cash','نقداً') : 'Paymob'} · {({pending:tr(ar,'Pending','قيد الانتظار'),processing:tr(ar,'Processing','قيد المعالجة'),paid:tr(ar,'Paid','مدفوع'),failed:tr(ar,'Failed','فشل'),cancelled:tr(ar,'Cancelled','ملغي'),refunded:tr(ar,'Refunded','مسترد')} as Record<string,string>)[order.payment.status] || order.payment.status} {order.payment.provider === 'paymob' && <Link className="text-primary underline" to={`/payment/${order.id}`}>{tr(ar,'Payment details','تفاصيل الدفع')}</Link>}</p>}
-              {order.phone && <p className="mt-3 text-sm text-gray-600">Delivery phone: {order.phone}</p>}
-              {order.notes && <p className="mt-3 text-sm text-gray-600">Delivery instructions: {order.notes}</p>}
-              {!order.demo && order.delivery_address && <Link className="mt-3 inline-block text-sm font-semibold text-primary underline" to={`/track/${order.id}`}>Track delivery</Link>}
+              {order.phone && <p className="mt-3 text-sm text-gray-600">{tr(ar,'Delivery phone','هاتف التوصيل')}: {order.phone}</p>}
+              {order.notes && <p className="mt-3 text-sm text-gray-600">{tr(ar,'Delivery instructions','تعليمات التوصيل')}: {order.notes}</p>}
+              {!order.demo && order.delivery_address && <Link className="mt-3 inline-block text-sm font-semibold text-primary underline" to={`/track/${order.id}`}>{tr(ar,'Track delivery','تتبع التوصيل')}</Link>}
               <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2">
                 <p className="text-xs text-gray-500">
                   {order.delivery_address
@@ -218,13 +214,14 @@ function OrdersSession() {
                       : ""}
                 </p>
                 <p className="font-extrabold text-primary">
-                  Total {formatEGP(order.total_price, currencySymbol)}
+                  {tr(ar,'Total','الإجمالي')} {formatEGP(order.total_price, currencySymbol)}
                 </p>
               </div>
             </Card>
           ))}
         </div>
       )}
+      <Pagination label={tr(ar,'Order history pages','صفحات سجل الطلبات')} page={page} hasNext={hasNext} onChange={setPage} />
     </div>
   );
 }

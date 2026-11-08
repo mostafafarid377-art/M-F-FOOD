@@ -6,3 +6,5 @@ export type { CardProps } from "./card";
 
 export { Badge, statusVariant } from "./badge";
 export type { BadgeProps, BadgeVariant } from "./badge";
+
+export { ButtonLink } from "./buttonLink";

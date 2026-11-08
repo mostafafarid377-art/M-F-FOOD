@@ -3,7 +3,7 @@ import { tr, useArabic } from "../phase5/Shell";
 import type { DeliveryPoint } from "./DeliveryMap";
 const DeliveryMap = React.lazy(() => import("./DeliveryMap"));
 import { Link, useNavigate } from "react-router-dom";
-import { Badge, Button, Card } from "../../components/ui";
+import { ButtonLink, Badge, Button, Card } from "../../components/ui";
 import { PAYMOB_PAUSED } from "../payments/policy";
 import { formatEGP } from "../../lib/format";
 import { supabase } from "../../lib/supabase";
@@ -149,14 +149,9 @@ function CheckoutContent() {
           You need an account to place an order — it keeps your order history safe.
         </p>
         <div className="mt-6 flex justify-center gap-3">
-          <Link to="/login" state={{ from: "/checkout" }}>
-            <Button size="lg">Login</Button>
-          </Link>
-          <Link to="/register" state={{ from: "/checkout" }}>
-            <Button size="lg" variant="outline">
-              Register
-            </Button>
-          </Link>
+          <ButtonLink to="/login" state={{ from: "/checkout" }} size="lg">Login</ButtonLink>
+          <ButtonLink to="/register" state={{ from: "/checkout" }} size="lg" variant="outline">Register
+            </ButtonLink>
         </div>
       </div>
     );
@@ -168,9 +163,7 @@ function CheckoutContent() {
         <p className="text-6xl">🛒</p>
         <h1 className="mt-4 text-2xl font-bold text-primary">Your cart is empty</h1>
         <p className="mt-2 text-gray-500">Add dishes from the menu before checking out.</p>
-        <Link to="/menu" className="mt-6 inline-block">
-          <Button size="lg">Browse Menu</Button>
-        </Link>
+        <ButtonLink to="/menu" size="lg" className={["mt-6 inline-block"].filter(Boolean).join(' ')}>Browse Menu</ButtonLink>
       </div>
     );
   }

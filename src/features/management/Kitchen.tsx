@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Card } from '../../components/ui';
+import { Pagination } from '../../components/Pagination';
+import { ButtonLink, Button, Card } from '../../components/ui';
 import { useManagementAccess } from './access';
 import { changeStatus, nextStatus, statusLabel, useLiveOrders, type ManagedOrder } from './orders';
 
 export default function Kitchen() {
-  const { orders, error, loading, connection, refresh } = useLiveOrders(true);
+  const { orders, error, loading, connection, refresh, page, setPage, hasNext } = useLiveOrders(true);
   const access = useManagementAccess();
   const [now, setNow] = useState(Date.now());
   const [busy, setBusy] = useState('');
@@ -22,10 +23,12 @@ export default function Kitchen() {
     { label: 'Ready', statuses: ['ready'] },
   ];
   return <div className="mx-auto max-w-[1800px] px-4 py-6">
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold uppercase tracking-widest text-primary">M-F-FOOD / Kitchen</p><h1 className="text-3xl font-bold">Kitchen display</h1><p className="text-sm text-gray-500">{connection} · automatically reconciles every 20 seconds</p></div><div className="flex gap-2">{(access === 'manager' || access === 'admin') && <Link to="/admin"><Button variant="outline">Dashboard</Button></Link>}<Button variant="outline" onClick={() => void refresh()}>Refresh</Button></div></div>
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm font-semibold uppercase tracking-widest text-primary">M-F-FOOD / Kitchen</p><h1 className="text-3xl font-bold">Kitchen display</h1><p className="text-sm text-gray-500">{connection} · automatically reconciles every 20 seconds</p></div><div className="flex gap-2">{(access === 'manager' || access === 'admin') && <ButtonLink to="/admin" variant="outline">Dashboard</ButtonLink>}<Button variant="outline" onClick={() => void refresh()}>Refresh</Button></div></div>
     {(error || actionError) && <p role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-red-700">{error || actionError}</p>}
     {loading && <p>Loading orders…</p>}
-    <div className="grid items-start gap-4 md:grid-cols-3">{columns.map(column => <section key={column.label} className="rounded-xl bg-orange-50 p-3"><h2 className="mb-3 text-xl font-bold">{column.label} <span className="text-sm text-gray-500">({orders.filter(o => column.statuses.includes(o.status)).length})</span></h2>
+    <p className="mb-2 text-sm">Showing one page of active orders. Check all pages for outstanding orders.</p>
+    <Pagination label="Active order pages" page={page} hasNext={hasNext} onChange={setPage} />
+    <div className="mt-4 grid items-start gap-4 md:grid-cols-3">{columns.map(column => <section key={column.label} className="rounded-xl bg-orange-50 p-3"><h2 className="mb-3 text-xl font-bold">{column.label} <span className="text-sm text-gray-500">({orders.filter(o => column.statuses.includes(o.status)).length})</span></h2>
       <div className="space-y-3">{orders.filter(o => column.statuses.includes(o.status)).map(order => {
         const minutes = Math.max(0, Math.floor((now - new Date(order.created_at).getTime()) / 60000));
         const next = nextStatus(order.status);
